@@ -1,3 +1,6 @@
+DROP MATERIALIZED VIEW IF EXISTS osm_highway_linestring_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS osm_highway_linestring_gen1_view CASCADE;
+DROP MATERIALIZED VIEW IF EXISTS osm_highway_linestring_gen2_view CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS osm_transportation_merge_linestring CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS osm_transportation_merge_linestring_gen3 CASCADE;
 DROP MATERIALIZED VIEW IF EXISTS osm_transportation_merge_linestring_gen4 CASCADE;
@@ -24,22 +27,98 @@ CREATE INDEX IF NOT EXISTS osm_highway_linestring_highway_partial_idx
   ON osm_highway_linestring(highway)
   WHERE highway IN ('motorway','trunk', 'primary', 'construction');
 
+
+CREATE INDEX IF NOT EXISTS osm_route_member_network_partial_idx
+  ON osm_route_member(network)
+  WHERE network IN ('icn', 'ncn', 'rcn', 'lcn');
+
+CREATE MATERIALIZED VIEW osm_highway_linestring_view AS (
+    SELECT hl.*, rm.network AS cycle_network
+    FROM osm_highway_linestring hl
+    LEFT JOIN osm_route_member rm ON (
+        rm.member = hl.osm_id AND
+        rm.network IN ('icn', 'ncn', 'rcn', 'lcn')
+    )
+);
+
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_view_geometry_idx
+  ON osm_highway_linestring_view USING gist(geometry);
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_view_highway_partial_idx
+  ON osm_highway_linestring_view(highway, construction);
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_view_network_partial_idx
+  ON osm_highway_linestring_view(cycle_network)
+  WHERE cycle_network IN ('icn', 'ncn', 'rcn', 'lcn');
+
+
+CREATE MATERIALIZED VIEW osm_highway_linestring_gen1_view AS (
+    SELECT hl.*, rm.network AS cycle_network
+    FROM osm_highway_linestring_gen1 hl
+    LEFT JOIN osm_route_member rm ON (
+        rm.member = hl.osm_id AND
+        rm.network IN ('icn', 'ncn', 'rcn', 'lcn')
+    )
+    WHERE (
+        rm.network IS NOT NULL OR
+        highway IN ('motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link') OR
+        highway = 'construction' AND construction IN ('motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link')
+    ) AND NOT is_area
+);
+
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_gen1_view_geometry_idx
+  ON osm_highway_linestring_gen1_view USING gist(geometry);
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_gen1_view_highway_partial_idx
+  ON osm_highway_linestring_gen1_view(highway, construction)
+  WHERE highway IN ('motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link') OR
+        highway = 'construction' AND construction IN ('motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link');
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_gen1_view_network_partial_idx
+  ON osm_highway_linestring_gen1_view(cycle_network)
+  WHERE cycle_network IN ('icn', 'ncn', 'rcn', 'lcn');
+
+
+CREATE MATERIALIZED VIEW osm_highway_linestring_gen2_view AS (
+    SELECT hl.*, rm.network AS cycle_network
+    FROM osm_highway_linestring_gen2 hl
+    LEFT JOIN osm_route_member rm ON (
+        rm.member = hl.osm_id AND
+        rm.network IN ('icn', 'ncn', 'rcn')
+    )
+    WHERE (
+        rm.network IS NOT NULL OR
+        highway IN ('motorway', 'trunk', 'primary', 'secondary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link') OR
+        highway = 'construction' AND construction IN ('motorway', 'trunk', 'primary', 'secondary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link')
+    ) AND NOT is_area
+);
+
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_gen2_view_geometry_idx
+  ON osm_highway_linestring_gen2_view USING gist(geometry);
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_gen2_view_highway_partial_idx
+  ON osm_highway_linestring_gen2_view(highway, construction)
+  WHERE highway IN ('motorway', 'trunk', 'primary', 'secondary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link') OR
+        highway = 'construction' AND construction IN ('motorway', 'trunk', 'primary', 'secondary', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link');
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_gen2_view_network_partial_idx
+  ON osm_highway_linestring_gen2_view(cycle_network)
+  WHERE cycle_network IN ('icn', 'ncn', 'rcn');
+
   -- etldoc: osm_highway_linestring ->  osm_transportation_merge_linestring
 CREATE MATERIALIZED VIEW osm_transportation_merge_linestring AS (
     SELECT
         (ST_Dump(geometry)).geom AS geometry,
         NULL::bigint AS osm_id,
         highway, construction,
-        z_order
+        z_order, cycle_network
     FROM (
       SELECT
           ST_LineMerge(ST_Collect(geometry)) AS geometry,
           highway, construction,
-          min(z_order) AS z_order
-      FROM osm_highway_linestring
-      WHERE (highway IN ('motorway','trunk', 'primary') OR highway = 'construction' AND construction IN ('motorway','trunk', 'primary'))
+          min(z_order) AS z_order, cycle_network
+      FROM osm_highway_linestring_view
+      WHERE (
+            cycle_network IS NOT NULL OR
+            highway IN ('motorway','trunk', 'primary') OR
+            highway = 'construction' AND construction IN ('motorway','trunk', 'primary')
+          )
           AND ST_IsValid(geometry)
-      group by highway, construction
+      group by highway, construction, cycle_network
     ) AS highway_union
 ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_geometry_idx
@@ -47,12 +126,15 @@ CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_geometry_idx
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_highway_partial_idx
   ON osm_transportation_merge_linestring(highway, construction)
   WHERE highway IN ('motorway','trunk', 'primary', 'construction');
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_network_partial_idx
+  ON osm_transportation_merge_linestring(cycle_network)
+  WHERE cycle_network IN ('icn', 'ncn', 'rcn');
 
 -- etldoc: osm_transportation_merge_linestring -> osm_transportation_merge_linestring_gen3
 CREATE MATERIALIZED VIEW osm_transportation_merge_linestring_gen3 AS (
-    SELECT ST_Simplify(geometry, 120) AS geometry, osm_id, highway, construction, z_order
+    SELECT ST_Simplify(geometry, 120) AS geometry, osm_id, highway, construction, z_order, cycle_network
     FROM osm_transportation_merge_linestring
-    WHERE highway IN ('motorway','trunk', 'primary')
+    WHERE cycle_network IN ('icn', 'ncn', 'rcn') OR highway IN ('motorway','trunk', 'primary')
       OR highway = 'construction' AND construction IN ('motorway','trunk', 'primary')
 ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen3_geometry_idx
@@ -60,12 +142,19 @@ CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen3_geometry_idx
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen3_highway_partial_idx
   ON osm_transportation_merge_linestring_gen3(highway, construction)
   WHERE highway IN ('motorway','trunk', 'primary', 'construction');
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen3_network_partial_idx
+  ON osm_transportation_merge_linestring_gen3(cycle_network)
+  WHERE cycle_network IN ('icn', 'ncn', 'rcn');
 
 -- etldoc: osm_transportation_merge_linestring_gen3 -> osm_transportation_merge_linestring_gen4
 CREATE MATERIALIZED VIEW osm_transportation_merge_linestring_gen4 AS (
-    SELECT ST_Simplify(geometry, 200) AS geometry, osm_id, highway, construction, z_order
+    SELECT ST_Simplify(geometry, 200) AS geometry, osm_id, highway, construction, z_order, cycle_network
     FROM osm_transportation_merge_linestring_gen3
-    WHERE (highway IN ('motorway','trunk', 'primary') OR highway = 'construction' AND construction IN ('motorway','trunk', 'primary'))
+    WHERE (
+            cycle_network IN ('icn', 'ncn') OR
+            highway IN ('motorway','trunk', 'primary') OR
+            highway = 'construction' AND construction IN ('motorway','trunk', 'primary')
+        )
         AND ST_Length(geometry) > 50
 ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen4_geometry_idx
@@ -73,6 +162,9 @@ CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen4_geometry_idx
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen4_highway_partial_idx
   ON osm_transportation_merge_linestring_gen4(highway, construction)
   WHERE highway IN ('motorway','trunk', 'primary', 'construction');
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen4_network_partial_idx
+  ON osm_transportation_merge_linestring_gen4(cycle_network)
+  WHERE cycle_network IN ('icn', 'ncn');
 
 -- etldoc: osm_transportation_merge_linestring_gen4 -> osm_transportation_merge_linestring_gen5
 CREATE MATERIALIZED VIEW osm_transportation_merge_linestring_gen5 AS (
@@ -125,6 +217,9 @@ CREATE OR REPLACE FUNCTION transportation.refresh() RETURNS trigger AS
   $BODY$
   BEGIN
     RAISE NOTICE 'Refresh transportation';
+    REFRESH MATERIALIZED VIEW osm_highway_linestring_view;
+    REFRESH MATERIALIZED VIEW osm_highway_linestring_gen1_view;
+    REFRESH MATERIALIZED VIEW osm_highway_linestring_gen2_view;
     REFRESH MATERIALIZED VIEW osm_transportation_merge_linestring;
     REFRESH MATERIALIZED VIEW osm_transportation_merge_linestring_gen3;
     REFRESH MATERIALIZED VIEW osm_transportation_merge_linestring_gen4;
