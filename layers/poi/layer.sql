@@ -41,7 +41,7 @@ RETURNS TABLE(osm_id bigint, geometry geometry, name text, name_en text, name_de
         SELECT *,
             osm_id*10 AS osm_id_hash FROM osm_poi_point
             WHERE geometry && bbox
-                AND zoom_level >= 14
+                AND zoom_level >= 12
 
         UNION ALL
         -- etldoc: osm_poi_polygon ->  layer_poi:z12
@@ -66,7 +66,7 @@ RETURNS TABLE(osm_id bigint, geometry geometry, name text, name_en text, name_de
             END AS osm_id_hash
         FROM osm_poi_polygon
             WHERE geometry && bbox
-                AND zoom_level >= 14
+                AND zoom_level >= 12
         ) as poi_union
     ORDER BY "rank"
     ;
