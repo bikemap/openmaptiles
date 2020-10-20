@@ -49,3 +49,14 @@ CREATE OR REPLACE FUNCTION surface_value(surface TEXT) RETURNS TEXT AS $$
 $$
 LANGUAGE SQL
 IMMUTABLE STRICT PARALLEL SAFE;
+
+
+CREATE OR REPLACE FUNCTION oneway_bicycle_value(oneway_bicycle TEXT) RETURNS boolean AS $$
+    SELECT CASE
+        WHEN NULLIF(oneway_bicycle, '') IS NULL THEN NULL
+        WHEN oneway_bicycle in ('true', 'yes', '1') THEN TRUE
+        ELSE FALSE
+    END
+$$
+LANGUAGE SQL
+IMMUTABLE STRICT PARALLEL SAFE;
