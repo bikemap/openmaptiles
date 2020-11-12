@@ -11,7 +11,7 @@ BEGIN
         CREATE TYPE route_network_type AS ENUM (
           'us-interstate', 'us-highway', 'us-state',
           'ca-transcanada',
-          'gb-motorway', 'gb-trunk'
+          'gb-motorway', 'gb-trunk', 'icn', 'ncn', 'rcn', 'lcn'
         );
     END IF;
 END

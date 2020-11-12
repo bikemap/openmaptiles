@@ -56,6 +56,7 @@ BEGIN
           THEN 'ca-transcanada'::route_network_type
         WHEN network = 'omt-gb-motorway' THEN 'gb-motorway'::route_network_type
         WHEN network = 'omt-gb-trunk' THEN 'gb-trunk'::route_network_type
+        WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN network::route_network_type
       END
   ;
 
