@@ -13,6 +13,7 @@ CREATE OR REPLACE FUNCTION layer_transportation_name(bbox geometry, zoom_level i
                 ref        text,
                 ref_length int,
                 network    text,
+                network_name text,
                 class      text,
                 subclass   text,
                 brunnel    text,
@@ -37,6 +38,7 @@ SELECT osm_id,
            WHEN length(coalesce(ref, '')) > 0
                THEN 'road'
            END AS network,
+       NULLIF(network_name, '') AS network_name,
        highway_class(highway, '', construction) AS class,
        CASE
            WHEN highway IS NOT NULL AND highway_class(highway, '', construction) = 'path'
@@ -52,7 +54,8 @@ FROM (
          SELECT *,
                 NULL::int AS layer,
                 NULL::int AS level,
-                NULL::boolean AS indoor
+                NULL::boolean AS indoor,
+                NULL AS network_name
          FROM osm_transportation_name_linestring_gen4
          WHERE zoom_level = 6
          UNION ALL
@@ -61,7 +64,8 @@ FROM (
          SELECT *,
                 NULL::int AS layer,
                 NULL::int AS level,
-                NULL::boolean AS indoor
+                NULL::boolean AS indoor,
+                NULL AS network_name
          FROM osm_transportation_name_linestring_gen3
          WHERE zoom_level = 7
          UNION ALL
@@ -70,7 +74,8 @@ FROM (
          SELECT *,
                 NULL::int AS layer,
                 NULL::int AS level,
-                NULL::boolean AS indoor
+                NULL::boolean AS indoor,
+                NULL AS network_name
          FROM osm_transportation_name_linestring_gen2
          WHERE zoom_level = 8
          UNION ALL
@@ -81,7 +86,8 @@ FROM (
          SELECT *,
                 NULL::int AS layer,
                 NULL::int AS level,
-                NULL::boolean AS indoor
+                NULL::boolean AS indoor,
+                NULL AS network_name
          FROM osm_transportation_name_linestring_gen1
          WHERE zoom_level BETWEEN 9 AND 11
          UNION ALL
@@ -101,7 +107,8 @@ FROM (
                 z_order,
                 layer,
                 "level",
-                indoor
+                indoor,
+                network_name
          FROM osm_transportation_name_linestring
          WHERE zoom_level = 12
            AND LineLabel(zoom_level, COALESCE(name, ref), geometry)
@@ -124,10 +131,11 @@ FROM (
                 z_order,
                 layer,
                 "level",
-                indoor
+                indoor,
+                network_name
          FROM osm_transportation_name_linestring
          WHERE zoom_level = 13
-           AND LineLabel(zoom_level, COALESCE(name, ref), geometry)
+           AND LineLabel(zoom_level, COALESCE(NULLIF(name, ''), COALESCE(NULLIF(network_name, ''), ref)), geometry)
            AND highway_class(highway, '', construction) NOT IN ('track', 'path')
          UNION ALL
 
@@ -146,7 +154,8 @@ FROM (
                 z_order,
                 layer,
                 "level",
-                indoor
+                indoor,
+                network_name
          FROM osm_transportation_name_linestring
          WHERE zoom_level >= 14
      ) AS zoom_levels

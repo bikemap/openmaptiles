@@ -22,6 +22,7 @@ SELECT
     layer,
     indoor,
     network_type,
+    network_name,
     z_order
 FROM (
     SELECT hl.geometry,
@@ -31,6 +32,7 @@ FROM (
         CASE WHEN length(hl.name_de) > 15 THEN osml10n_street_abbrev_de(hl.name_de) ELSE NULLIF(hl.name_de, '') END AS "name_de",
         slice_language_tags(hl.tags) AS tags,
         rm.network_type,
+        rm.name as network_name,
         CASE
             WHEN rm.network_type IS NOT NULL AND nullif(rm.ref::text, '') IS NOT NULL
                 THEN rm.ref::text
@@ -73,6 +75,7 @@ SELECT (ST_Dump(geometry)).geom AS geometry,
        layer,
        indoor,
        network_type AS network,
+       network_name,
        z_order
 FROM (
          SELECT ST_LineMerge(ST_Collect(geometry)) AS geometry,
@@ -89,9 +92,10 @@ FROM (
                 layer,
                 indoor,
                 network_type,
+                network_name,
                 min(z_order) AS z_order
          FROM osm_transportation_name_network
-         GROUP BY name, name_en, name_de, tags, ref, highway, construction, brunnel, "level", layer, indoor, network_type
+         GROUP BY name, name_en, name_de, tags, ref, highway, construction, brunnel, "level", layer, indoor, network_type, network_name
      ) AS highway_union
 ;
 CREATE INDEX IF NOT EXISTS osm_transportation_name_linestring_name_ref_idx ON osm_transportation_name_linestring (coalesce(name, ''), coalesce(ref, ''));
