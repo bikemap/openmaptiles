@@ -22,6 +22,7 @@ SELECT
     layer,
     indoor,
     network_type,
+    network_name,
     route_1, route_2, route_3, route_4, route_5, route_6,
     z_order,
     route_rank
@@ -31,6 +32,7 @@ FROM (
         hl.osm_id,
         transportation_name_tags(hl.geometry, hl.tags, hl.name, hl.name_en, hl.name_de) AS tags,
         rm1.network_type,
+        rm1.name as network_name,
         CASE
             WHEN rm1.network_type IS NOT NULL AND rm1.ref::text <> ''
                 THEN rm1.ref::text
