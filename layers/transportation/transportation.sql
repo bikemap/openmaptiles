@@ -30,7 +30,9 @@ CREATE OR REPLACE FUNCTION layer_transportation(bbox geometry, zoom_level int)
                 foot       text,
                 horse      text,
                 mtb_scale  text,
-                surface    text
+                surface    text,
+                cycleway   text,
+                oneway_bicycle boolean
             )
 AS
 $$
@@ -70,7 +72,9 @@ SELECT osm_id,
        NULLIF(foot, '') AS foot,
        NULLIF(horse, '') AS horse,
        NULLIF(mtb_scale, '') AS mtb_scale,
-       NULLIF(surface, '') AS surface
+       NULLIF(surface, '') AS surface,
+       NULLIF(cycleway, '') AS cycleway,
+       oneway_bicycle_value(oneway_bicycle) AS oneway_bicycle
 FROM (
          -- etldoc: osm_transportation_merge_linestring_gen_z4 -> layer_transportation:z4
          SELECT osm_id,
@@ -100,6 +104,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z4
          WHERE zoom_level = 4
@@ -133,6 +139,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z5
          WHERE zoom_level = 5
@@ -166,6 +174,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z6
          WHERE zoom_level = 6
@@ -199,6 +209,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z7
          WHERE zoom_level = 7
@@ -232,6 +244,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z8
          WHERE zoom_level = 8
@@ -265,6 +279,8 @@ FROM (
                 horse,
                 mtb_scale,
                 NULL AS surface,
+                cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z9
          WHERE zoom_level = 9
@@ -298,6 +314,8 @@ FROM (
                 horse,
                 mtb_scale,
                 NULL AS surface,
+                cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z10
          WHERE zoom_level = 10
@@ -331,6 +349,8 @@ FROM (
                 horse,
                 mtb_scale,
                 NULL AS surface,
+                cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z11
          WHERE zoom_level = 11
@@ -369,20 +389,26 @@ FROM (
                 horse,
                 mtb_scale,
                 surface_value(surface) AS "surface",
+                cycleway,
+                oneway_bicycle,
                 hl.z_order
          FROM osm_highway_linestring hl
          LEFT OUTER JOIN osm_transportation_name_network n ON hl.osm_id = n.osm_id
          WHERE NOT is_area
            AND
                CASE WHEN zoom_level = 12 THEN
-                         CASE WHEN transportation_filter_z12(hl.highway, hl.construction) THEN TRUE
-                              WHEN hl.highway IN ('track', 'path') THEN n.route_rank = 1
+                         CASE WHEN transportation_filter_z12(hl.highway, hl.construction, hl.network) THEN TRUE
+                            WHEN hl.highway IN ('track', 'path') THEN n.route_rank = 1
                          END
                     WHEN zoom_level = 13 THEN
                          CASE WHEN man_made='pier' THEN NOT ST_IsClosed(hl.geometry)
                               WHEN hl.highway IN ('track', 'path') THEN (hl.name <> ''
                                                                    OR n.route_rank BETWEEN 1 AND 2
                                                                    OR hl.sac_scale <> ''
+                                                                   OR hl.highway = 'cycleway'
+                                                                   OR hl.highway = 'construction' AND construction = 'cycleway'
+                                                                   OR hl.bicycle = 'yes'
+                                                                   OR hl.network in ('icn', 'ncn', 'rcn', 'lcn')
                                                                    )
                               ELSE transportation_filter_z13(hl.highway, public_transport, hl.construction, service)
                          END
@@ -421,6 +447,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_railway_linestring_gen_z8
          WHERE zoom_level = 8
@@ -457,6 +485,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_railway_linestring_gen_z9
          WHERE zoom_level = 9
@@ -493,6 +523,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_railway_linestring_gen_z10
          WHERE zoom_level = 10
@@ -528,6 +560,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_railway_linestring_gen_z11
          WHERE zoom_level = 11
@@ -563,6 +597,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_railway_linestring_gen_z12
          WHERE zoom_level = 12
@@ -599,6 +635,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_railway_linestring
          WHERE zoom_level = 13
@@ -635,6 +673,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_aerialway_linestring_gen_z12
          WHERE zoom_level = 12
@@ -669,6 +709,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_aerialway_linestring
          WHERE zoom_level >= 13
@@ -702,6 +744,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_shipway_linestring_gen_z11
          WHERE zoom_level = 11
@@ -735,6 +779,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_shipway_linestring_gen_z12
          WHERE zoom_level = 12
@@ -769,6 +815,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_shipway_linestring
          WHERE zoom_level >= 13
@@ -810,6 +858,8 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
                 z_order
          FROM osm_highway_polygon
               -- We do not want underground pedestrian areas for now

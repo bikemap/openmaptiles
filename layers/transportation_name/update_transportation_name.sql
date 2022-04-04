@@ -18,6 +18,7 @@ SELECT (ST_Dump(geometry)).geom AS geometry,
        layer,
        indoor,
        network_type AS network,
+       network_name,
        route_1, route_2, route_3, route_4, route_5, route_6,
        z_order,
        route_rank
@@ -35,12 +36,13 @@ FROM (
                 layer,
                 indoor,
                 network_type,
+                network_name,
                 route_1, route_2, route_3, route_4, route_5, route_6,
                 min(z_order) AS z_order,
                 min(route_rank) AS route_rank
          FROM osm_transportation_name_network
          WHERE tags->'name' <> '' OR ref <> ''
-         GROUP BY tags, ref, highway, subclass, "level", layer, sac_scale, indoor, network_type,
+         GROUP BY tags, ref, highway, subclass, "level", layer, sac_scale, indoor, network_type, network_name,
                   route_1, route_2, route_3, route_4, route_5, route_6
          UNION ALL
 
