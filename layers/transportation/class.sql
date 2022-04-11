@@ -57,17 +57,27 @@ $$ LANGUAGE SQL IMMUTABLE
                 STRICT
                 PARALLEL SAFE;
 
+CREATE OR REPLACE FUNCTION oneway_bicycle_value(oneway_bicycle TEXT) RETURNS boolean AS $$
+    SELECT CASE
+        WHEN NULLIF(oneway_bicycle, '') IS NULL THEN NULL
+        WHEN oneway_bicycle in ('true', 'yes', '1') THEN TRUE
+        ELSE FALSE
+    END
+$$
+LANGUAGE SQL
+IMMUTABLE STRICT PARALLEL SAFE;
+
 -- Determine which transportation features are shown at zoom 12
 CREATE OR REPLACE FUNCTION transportation_filter_z12(highway text, construction text) RETURNS boolean AS
 $$
 SELECT CASE
-           WHEN highway IN ('unclassified', 'residential') THEN TRUE
+           WHEN highway IN ('unclassified', 'residential', 'cycleway') THEN TRUE
            WHEN highway_class(highway, '', construction) IN
                (
                 'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'raceway',
                 'motorway_construction', 'trunk_construction', 'primary_construction',
                 'secondary_construction', 'tertiary_construction', 'raceway_construction',
-                'busway'
+                'busway', 'cycleway'
                ) THEN TRUE --includes ramps
            ELSE FALSE
        END
@@ -83,7 +93,7 @@ CREATE OR REPLACE FUNCTION transportation_filter_z13(highway text,
                                                      service text) RETURNS boolean AS
 $$
 SELECT CASE
-           WHEN transportation_filter_z12(highway, construction) THEN TRUE
+           WHEN transportation_filter_z12(highway, construction)THEN TRUE
            WHEN highway = 'service' OR construction = 'service' THEN service NOT IN ('driveway', 'parking_aisle')
            WHEN highway_class(highway, public_transport, construction) IN ('minor', 'minor_construction') THEN TRUE
            ELSE FALSE
@@ -91,14 +101,3 @@ SELECT CASE
 $$ LANGUAGE SQL IMMUTABLE
                 STRICT
                 PARALLEL SAFE;
-
---
-CREATE OR REPLACE FUNCTION oneway_bicycle_value(oneway_bicycle TEXT) RETURNS boolean AS $$
-    SELECT CASE
-        WHEN NULLIF(oneway_bicycle, '') IS NULL THEN NULL
-        WHEN oneway_bicycle in ('true', 'yes', '1') THEN TRUE
-        ELSE FALSE
-    END
-$$
-LANGUAGE SQL
-IMMUTABLE STRICT PARALLEL SAFE;
