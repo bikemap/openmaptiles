@@ -191,7 +191,8 @@ FROM (
                 z_order,
                 layer,
                 NULL::int AS level,
-                NULL::boolean AS indoor
+                NULL::boolean AS indoor,
+                NULL AS network_name
          FROM osm_highway_point p
          WHERE highway = 'motorway_junction' AND zoom_level >= 10
      ) AS zoom_levels
