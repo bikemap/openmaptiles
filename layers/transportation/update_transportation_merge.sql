@@ -7,29 +7,6 @@ DROP TRIGGER IF EXISTS trigger_refresh ON transportation.updates;
 -- Because this works well for roads that do not have relations as well
 
 
-CREATE INDEX IF NOT EXISTS osm_route_member_network_partial_idx
-  ON osm_route_member(network)
-  WHERE network IN ('icn', 'ncn', 'rcn', 'lcn');
-
-DROP MATERIALIZED VIEW IF EXISTS osm_highway_linestring_view CASCADE;
-CREATE MATERIALIZED VIEW osm_highway_linestring_view AS (
-    SELECT hl.*, rm.network AS cycle_network
-    FROM osm_highway_linestring hl
-    LEFT JOIN osm_route_member rm ON (
-        rm.member = hl.osm_id AND
-        rm.network IN ('icn', 'ncn', 'rcn', 'lcn')
-    )
-);
-
-CREATE INDEX IF NOT EXISTS osm_highway_linestring_view_geometry_idx
-  ON osm_highway_linestring_view USING gist(geometry);
-CREATE INDEX IF NOT EXISTS osm_highway_linestring_view_highway_partial_idx
-  ON osm_highway_linestring_view(highway, construction);
-CREATE INDEX IF NOT EXISTS osm_highway_linestring_view_network_partial_idx
-  ON osm_highway_linestring_view(cycle_network)
-  WHERE cycle_network IN ('icn', 'ncn', 'rcn', 'lcn');
-
-
 -- etldoc: osm_highway_linestring ->  osm_transportation_name_network
 -- etldoc: osm_route_member ->  osm_transportation_name_network
 CREATE TABLE IF NOT EXISTS osm_transportation_name_network AS
@@ -119,10 +96,11 @@ SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
            WHEN access IN ('private', 'no') THEN 'no'
            ELSE NULL::text END AS access,
        toll,
-       layer
+       layer,
+       cycleway
 FROM osm_highway_linestring_gen_z11
 -- mapping.yaml pre-filter: motorway/trunk/primary/secondary/tertiary, with _link variants, construction, ST_IsValid()
-GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer
+GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z11_geometry_idx
     ON osm_transportation_merge_linestring_gen_z11 USING gist (geometry);
@@ -147,10 +125,13 @@ SELECT ST_Simplify(geometry, ZRes(12)) AS geometry,
        sac_scale,
        access,
        toll,
-       layer
+       layer,
+       cycleway
 FROM osm_transportation_merge_linestring_gen_z11
-WHERE highway NOT IN ('tertiary', 'tertiary_link', 'busway')
-      AND construction NOT IN ('tertiary', 'tertiary_link', 'busway')
+WHERE network in ('icn', 'ncn', 'rcn') OR (
+        highway NOT IN ('tertiary', 'tertiary_link', 'busway')
+        AND construction NOT IN ('tertiary', 'tertiary_link', 'busway')
+      )
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z10_geometry_idx
     ON osm_transportation_merge_linestring_gen_z10 USING gist (geometry);
@@ -175,7 +156,8 @@ SELECT ST_Simplify(geometry, ZRes(11)) AS geometry,
        sac_scale,
        access,
        toll,
-       layer
+       layer,
+       cycleway
 FROM osm_transportation_merge_linestring_gen_z10
      -- Current view: motorway/primary/secondary, with _link variants and construction 
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
@@ -194,21 +176,17 @@ SELECT ST_Simplify(ST_LineMerge(ST_Collect(geometry)), ZRes(10)) AS geometry,
        is_tunnel,
        is_ford,
        expressway,
-       min(z_order) as z_order,
-       cycle_network
-FROM osm_highway_linestring_view
-WHERE (cycle_network IS NOT NULL OR
+       min(z_order) as z_order
+FROM osm_transportation_merge_linestring_gen_z9
+WHERE (network in ('icn', 'ncn', 'rcn') OR
        highway IN ('motorway', 'trunk', 'primary') OR
        construction IN ('motorway', 'trunk', 'primary'))
        AND ST_IsValid(geometry)
        AND access IS NULL
-GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, cycle_network
+GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z8_geometry_idx
     ON osm_transportation_merge_linestring_gen_z8 USING gist (geometry);
-CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_network_partial_idx
-  ON osm_transportation_merge_linestring_gen_z8(cycle_network)
-  WHERE cycle_network IN ('icn', 'ncn', 'rcn');
 
 -- etldoc: osm_transportation_merge_linestring_gen_z8 -> osm_transportation_merge_linestring_gen_z7
 CREATE MATERIALIZED VIEW osm_transportation_merge_linestring_gen_z7 AS
@@ -222,18 +200,14 @@ SELECT ST_Simplify(geometry, ZRes(9)) AS geometry,
        is_tunnel,
        is_ford,
        expressway,
-       z_order,
-       cycle_network
+       z_order
 FROM osm_transportation_merge_linestring_gen_z8
      -- Current view: motorway/trunk/primary
-WHERE cycle_network IN ('icn', 'ncn') OR highway IN ('motorway', 'trunk', 'primary')
+WHERE network IN ('icn', 'ncn') OR highway IN ('motorway', 'trunk', 'primary')
       AND ST_Length(geometry) > 50
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z7_geometry_idx
     ON osm_transportation_merge_linestring_gen_z7 USING gist (geometry);
-CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z7_network_partial_idx
-  ON osm_transportation_merge_linestring_gen_z7(cycle_network)
-  WHERE cycle_network IN ('icn', 'ncn');
 
 -- etldoc: osm_transportation_merge_linestring_gen_z7 -> osm_transportation_merge_linestring_gen_z6
 CREATE MATERIALIZED VIEW osm_transportation_merge_linestring_gen_z6 AS
@@ -317,7 +291,6 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh transportation';
-    REFRESH MATERIALIZED VIEW osm_highway_linestring_view;
     REFRESH MATERIALIZED VIEW osm_transportation_merge_linestring_gen_z11;
     REFRESH MATERIALIZED VIEW osm_transportation_merge_linestring_gen_z10;
     REFRESH MATERIALIZED VIEW osm_transportation_merge_linestring_gen_z9;

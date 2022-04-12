@@ -184,7 +184,16 @@ tables:
       key: 'oneway:bicycle'
       type: string
     - name: cycleway
-      key: cycleway
+      key: 'cycleway'
+      type: string
+    - name: cycleway_both
+      key: 'cycleway:both'
+      type: string
+    - name: cycleway_left
+      key: 'cycleway:left'
+      type: string
+    - name: cycleway_right
+      key: 'cycleway:right'
       type: string
     - *ref
     - *network
