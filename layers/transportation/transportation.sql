@@ -216,7 +216,7 @@ FROM (
                 NULL AS surface,
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
-                cycle_network,
+                CASE WHEN network IN ('icn', 'ncn') THEN network END AS cycle_network,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z7
          WHERE zoom_level = 7
@@ -252,7 +252,7 @@ FROM (
                 NULL AS surface,
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
-                cycle_network,
+                CASE WHEN network IN ('icn', 'ncn', 'rcn') THEN network END AS cycle_network,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z8
          WHERE zoom_level = 8
@@ -286,9 +286,9 @@ FROM (
                 horse,
                 mtb_scale,
                 NULL AS surface,
-                NULL AS cycleway,
+                cycleway,
                 NULL AS oneway_bicycle,
-                NULL AS cycle_network,
+                CASE WHEN network IN ('icn', 'ncn', 'rcn') THEN network END AS cycle_network,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z9
          WHERE zoom_level = 9
@@ -322,9 +322,9 @@ FROM (
                 horse,
                 mtb_scale,
                 NULL AS surface,
-                NULL AS cycleway,
+                cycleway,
                 NULL AS oneway_bicycle,
-                NULL AS cycle_network,
+                CASE WHEN network IN ('icn', 'ncn', 'rcn') THEN network END AS cycle_network,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z10
          WHERE zoom_level = 10
@@ -358,9 +358,9 @@ FROM (
                 horse,
                 mtb_scale,
                 NULL AS surface,
-                NULL AS cycleway,
+                cycleway,
                 NULL AS oneway_bicycle,
-                NULL AS cycle_network,
+                CASE WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN network END AS cycle_network,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z11
          WHERE zoom_level = 11
@@ -401,18 +401,21 @@ FROM (
                 surface_value(surface) AS "surface",
                 cycleway,
                 oneway_bicycle,
-                cycle_network,
+                CASE WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN network END AS cycle_network,
                 hl.z_order
-         FROM osm_highway_linestring_view hl
+         FROM osm_highway_linestring hl
          LEFT OUTER JOIN osm_transportation_name_network n ON hl.osm_id = n.osm_id
          WHERE NOT is_area
            AND
                CASE WHEN zoom_level = 12 THEN
                          CASE WHEN transportation_filter_z12(hl.highway, hl.construction) THEN TRUE
+                              WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN TRUE
                               WHEN hl.highway IN ('track', 'path') THEN n.route_rank = 1
                          END
                     WHEN zoom_level = 13 THEN
-                         CASE WHEN man_made='pier' THEN NOT ST_IsClosed(hl.geometry)
+                         CASE WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN TRUE
+                              WHEN hl.bicycle = 'yes' THEN TRUE
+                              WHEN man_made='pier' THEN NOT ST_IsClosed(hl.geometry)
                               WHEN hl.highway IN ('track', 'path') THEN (hl.name <> ''
                                                                    OR n.route_rank BETWEEN 1 AND 2
                                                                    OR hl.sac_scale <> ''

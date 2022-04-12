@@ -113,10 +113,11 @@ FROM (
                 network_name
          FROM osm_transportation_name_linestring
          WHERE zoom_level = 12
-           AND LineLabel(zoom_level, COALESCE(tags->'name', ref), geometry)
+           AND LineLabel(zoom_level, COALESCE(NULLIF(tags->'name', ''), COALESCE(NULLIF(network_name, ''), ref)), geometry)
            AND NOT highway_is_link(highway)
            AND
-               CASE WHEN highway_class(highway, NULL::text, NULL::text) NOT IN ('path', 'minor') THEN TRUE
+               CASE WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN TRUE
+                    WHEN highway_class(highway, NULL::text, NULL::text) NOT IN ('path', 'minor') THEN TRUE
                     WHEN highway IN ('aerialway', 'unclassified', 'residential', 'shipway') THEN TRUE
                     WHEN route_rank = 1 THEN TRUE END
 
@@ -140,7 +141,8 @@ FROM (
          WHERE zoom_level = 13
            AND LineLabel(zoom_level, COALESCE(NULLIF(tags->'name', ''), COALESCE(NULLIF(network_name, ''), ref)), geometry)
            AND
-               CASE WHEN highway <> 'path' THEN TRUE
+               CASE WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN TRUE
+                    WHEN highway <> 'path' THEN TRUE
                     WHEN highway = 'path' AND (
                                                    tags->'name' <> ''
                                                 OR network IS NOT NULL
