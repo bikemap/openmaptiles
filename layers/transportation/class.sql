@@ -63,6 +63,24 @@ CREATE OR REPLACE FUNCTION oneway_bicycle_value(oneway_bicycle TEXT) RETURNS boo
         WHEN oneway_bicycle in ('true', 'yes', '1') THEN TRUE
         ELSE FALSE
     END
+$$ LANGUAGE SQL IMMUTABLE
+                STRICT
+                PARALLEL SAFE;
+
+
+CREATE OR REPLACE FUNCTION cycleway_value(cycleway TEXT, cycleway_both TEXT, cycleway_left TEXT, cycleway_right TEXT, cyclestreet TEXT) RETURNS text AS $$
+    SELECT CASE
+        WHEN NULLIF(cycleway, '') IS NOT NULL THEN cycleway
+        WHEN NULLIF(cycleway, '') IS NULL AND NULLIF(cycleway_both, '') IS NOT NULL THEN cycleway_both
+        WHEN NULLIF(cycleway, '') IS NULL AND NULLIF(cycleway_both, '') IS NULL AND
+             NULLIF(cycleway_left, '') IS NOT NULL THEN cycleway_left
+        WHEN NULLIF(cycleway, '') IS NULL AND NULLIF(cycleway_both, '') IS NULL AND
+             NULLIF(cycleway_left, '') IS NULL AND NULLIF(cycleway_right, '') IS NOT NULL THEN cycleway_right
+        WHEN NULLIF(cycleway, '') IS NULL AND NULLIF(cycleway_both, '') IS NULL AND
+             NULLIF(cycleway_left, '') IS NULL AND NULLIF(cycleway_right, '') IS NULL AND
+             NULLIF(cyclestreet, '') IS NOT NULL THEN cyclestreet
+        ELSE ''
+    END;
 $$
 LANGUAGE SQL
 IMMUTABLE STRICT PARALLEL SAFE;

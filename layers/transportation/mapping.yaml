@@ -195,6 +195,9 @@ tables:
     - name: cycleway_right
       key: 'cycleway:right'
       type: string
+    - name: cycleway_street
+      key: cyclestreet
+      type: string
     - *ref
     - *network
     - *z_order
