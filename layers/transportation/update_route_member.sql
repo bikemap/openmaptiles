@@ -37,17 +37,28 @@ SELECT CASE
 $$ LANGUAGE sql IMMUTABLE
                 PARALLEL SAFE;
 
--- etldoc:  osm_route_member ->  osm_route_member
--- see http://wiki.openstreetmap.org/wiki/Relation:route#Road_routes
-UPDATE osm_route_member
-SET network_type = osm_route_member_network_type(network)
-WHERE network != ''
-  AND network_type IS DISTINCT FROM osm_route_member_network_type(network)
-;
-
 CREATE OR REPLACE FUNCTION update_osm_route_member() RETURNS void AS
 $$
 BEGIN
+
+    ALTER TABLE transportation_name.network_changes DISABLE TRIGGER trigger_flag_transportation_name;
+    INSERT INTO transportation_name.network_changes(osm_id)
+    WITH RECURSIVE recursive_superroute_children AS (
+        SELECT osm_superroute_member.osm_id, osm_superroute_member.member
+        FROM osm_superroute_member
+        JOIN transportation_name.superroute_changes ON
+            osm_superroute_member.osm_id = transportation_name.superroute_changes.osm_id
+        UNION
+        SELECT child.osm_id, child.member
+        FROM osm_superroute_member child
+        JOIN recursive_superroute_children ON child.osm_id = recursive_superroute_children.member
+    )
+    SELECT osm_route_member.member
+    FROM osm_route_member, recursive_superroute_children
+    WHERE osm_route_member.osm_id = recursive_superroute_children.member
+    ON CONFLICT(osm_id) DO NOTHING;
+    ALTER TABLE transportation_name.network_changes ENABLE TRIGGER trigger_flag_transportation_name;
+
     DELETE
     FROM osm_route_member AS r
         USING
@@ -61,22 +72,58 @@ BEGIN
              JOIN transportation_name.network_changes AS c ON
         r.osm_id = c.osm_id;
 
-    INSERT INTO osm_route_member (id, osm_id, network_type, concurrency_index, rank)
+    INSERT INTO osm_route_member (id, osm_id, network, network_type, concurrency_index, rank, name)
     SELECT
-      id,
-      osm_id,
-      osm_route_member_network_type(network) AS network_type,
-      DENSE_RANK() over (PARTITION BY member ORDER BY network_type, network, LENGTH(ref), ref) AS concurrency_index,
+      rm.id,
+      rm.osm_id,
+      COALESCE(srm.network, rm.network) AS network,
+      osm_route_member_network_type(COALESCE(srm.network, rm.network)) AS network_type,
+      DENSE_RANK() OVER (
+          PARTITION BY rm.member
+          ORDER BY osm_route_member_network_type(COALESCE(srm.network, rm.network)),
+                   COALESCE(srm.network, rm.network),
+                   LENGTH(COALESCE(srm.ref, rm.ref)),
+                   COALESCE(srm.ref, rm.ref)
+          ) AS concurrency_index,
       CASE
-           WHEN network IN ('iwn', 'nwn', 'rwn') THEN 1
-           WHEN network = 'lwn' THEN 2
-           WHEN osmc_symbol || colour <> '' THEN 2
-      END AS rank
+           WHEN COALESCE(srm.network, rm.network) IN ('iwn', 'nwn', 'rwn') THEN 1
+           WHEN COALESCE(srm.network, rm.network) = 'lwn' THEN 2
+           WHEN rm.osmc_symbol || rm.colour <> '' THEN 2
+      END AS rank,
+      COALESCE(srm.name, rm.name) AS name
     FROM osm_route_member rm
+    LEFT OUTER JOIN (
+        SELECT ordered_superroute_members.* FROM (
+            WITH RECURSIVE recursive_superroute_member AS (
+                SELECT osm_id, osm_id AS parent_osm_id, 0 AS hierachy_index, member, network, ref, name
+                FROM osm_superroute_member
+                UNION
+                SELECT recursive_superroute_member.osm_id, parent.osm_id AS parent_osm_id,
+                       recursive_superroute_member.hierachy_index + 1 AS hierarchy_index,
+                       recursive_superroute_member.member, parent.network, parent.ref, parent.name
+                FROM recursive_superroute_member
+                JOIN osm_superroute_member parent ON parent.member = recursive_superroute_member.parent_osm_id
+            )
+            SELECT *, DENSE_RANK() OVER (
+                PARTITION BY recursive_superroute_member.member
+                ORDER BY osm_route_member_network_type(recursive_superroute_member.network),
+                         recursive_superroute_member.hierachy_index DESC,
+                         recursive_superroute_member.network,
+                         LENGTH(recursive_superroute_member.ref),
+                         recursive_superroute_member.ref
+                ) AS dense_rank
+            FROM recursive_superroute_member
+        ) AS ordered_superroute_members
+        WHERE ordered_superroute_members.dense_rank = 1
+    ) AS srm ON srm.member = rm.osm_id
     WHERE rm.member IN
       (SELECT DISTINCT osm_id FROM transportation_name.network_changes)
     ON CONFLICT (id, osm_id) DO UPDATE SET concurrency_index = EXCLUDED.concurrency_index,
-                                           rank = EXCLUDED.rank;
+                                           rank = EXCLUDED.rank,
+                                           network = EXCLUDED.network,
+                                           network_type = EXCLUDED.network_type,
+                                           name = EXCLUDED.name;
+
 END;
 $$ LANGUAGE plpgsql;
 
@@ -84,6 +131,11 @@ CREATE INDEX IF NOT EXISTS osm_route_member_network_idx ON osm_route_member ("ne
 CREATE INDEX IF NOT EXISTS osm_route_member_member_idx ON osm_route_member ("member");
 CREATE INDEX IF NOT EXISTS osm_route_member_name_idx ON osm_route_member ("name");
 CREATE INDEX IF NOT EXISTS osm_route_member_ref_idx ON osm_route_member ("ref");
+
+CREATE INDEX IF NOT EXISTS osm_superroute_member_osm_id_idx ON osm_superroute_member ("osm_id");
+CREATE INDEX IF NOT EXISTS osm_superroute_member_network_idx ON osm_superroute_member ("network");
+CREATE INDEX IF NOT EXISTS osm_superroute_member_member_idx ON osm_superroute_member ("member");
+CREATE INDEX IF NOT EXISTS osm_superroute_member_ref_idx ON osm_superroute_member ("ref");
 
 CREATE INDEX IF NOT EXISTS osm_route_member_network_type_idx ON osm_route_member ("network_type");
 
@@ -94,18 +146,53 @@ ALTER TABLE osm_route_member ADD COLUMN IF NOT EXISTS concurrency_index int,
                              ADD COLUMN IF NOT EXISTS rank int;
 
 -- One-time load of concurrency indexes; updates occur via trigger
-INSERT INTO osm_route_member (id, osm_id, concurrency_index, rank)
+INSERT INTO osm_route_member (id, osm_id, network, network_type, concurrency_index, rank, name)
   SELECT
-    id,
-    osm_id,
-    DENSE_RANK() over (PARTITION BY member ORDER BY network_type, network, LENGTH(ref), ref) AS concurrency_index,
-    CASE
-         WHEN network IN ('iwn', 'nwn', 'rwn') THEN 1
-         WHEN network = 'lwn' THEN 2
-         WHEN osmc_symbol || colour <> '' THEN 2
-    END AS rank
-  FROM osm_route_member
-  ON CONFLICT (id, osm_id) DO UPDATE SET concurrency_index = EXCLUDED.concurrency_index, rank = EXCLUDED.rank;
+  rm.id,
+  rm.osm_id,
+  COALESCE(srm.network, rm.network) AS network,
+  osm_route_member_network_type(COALESCE(srm.network, rm.network)) AS network_type,
+  DENSE_RANK() OVER (
+      PARTITION BY rm.member
+      ORDER BY osm_route_member_network_type(COALESCE(srm.network, rm.network)),
+               COALESCE(srm.network, rm.network),
+               LENGTH(rm.ref),
+               rm.ref
+      ) AS concurrency_index,
+  CASE
+       WHEN COALESCE(srm.network, rm.network) IN ('iwn', 'nwn', 'rwn') THEN 1
+       WHEN COALESCE(srm.network, rm.network) = 'lwn' THEN 2
+       WHEN rm.osmc_symbol || rm.colour <> '' THEN 2
+  END AS rank,
+  COALESCE(srm.name, rm.name) AS name
+  FROM osm_route_member rm
+  LEFT OUTER JOIN (
+        SELECT ordered_superroute_members.* FROM (
+            WITH RECURSIVE recursive_superroute_member AS (
+                SELECT osm_id, osm_id AS parent_osm_id, 0 AS hierachy_index, member, network, ref, name
+                FROM osm_superroute_member
+                UNION
+                SELECT recursive_superroute_member.osm_id, parent.osm_id AS parent_osm_id,
+                       recursive_superroute_member.hierachy_index + 1 AS hierarchy_index,
+                       recursive_superroute_member.member, parent.network, parent.ref, parent.name
+                FROM recursive_superroute_member
+                JOIN osm_superroute_member parent ON parent.member = recursive_superroute_member.parent_osm_id
+            )
+            SELECT *, DENSE_RANK() OVER (
+                PARTITION BY recursive_superroute_member.member
+                ORDER BY osm_route_member_network_type(recursive_superroute_member.network),
+                         recursive_superroute_member.hierachy_index DESC,
+                         recursive_superroute_member.network,
+                         LENGTH(recursive_superroute_member.ref),
+                         recursive_superroute_member.ref
+                ) AS dense_rank
+            FROM recursive_superroute_member
+        ) AS ordered_superroute_members
+        WHERE ordered_superroute_members.dense_rank = 1
+    ) AS srm ON srm.member = rm.osm_id
+  ON CONFLICT (id, osm_id) DO UPDATE SET concurrency_index = EXCLUDED.concurrency_index, rank = EXCLUDED.rank,
+                                         network = EXCLUDED.network, network_type = EXCLUDED.network_type,
+                                         name = EXCLUDED.name;;
 
 UPDATE osm_highway_linestring hl
   SET network = rm.network_type

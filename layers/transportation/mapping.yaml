@@ -471,3 +471,26 @@ tables:
       - hiking
       - bicycle
       - mtb
+
+  superroute_member:
+    type: relation_member
+    columns:
+    - name: osm_id
+      type: id
+    - name: member
+      type: member_id
+    - name: role
+      type: member_role
+    - name: type
+      type: member_type
+    - *ref
+    - *network
+    - *name
+    relation_types:
+    - superroute
+    mapping:
+      network:
+      - icn
+      - ncn
+      - rcn
+      - lcn
