@@ -144,7 +144,15 @@ CREATE TABLE IF NOT EXISTS osm_transportation_merge_linestring_gen_z11(
     access text,
     toll boolean,
     layer integer,
-    cycleway text
+    cycleway text,
+    bm_weight integer,
+    bm_weight_road_bike integer,
+    bm_weight_mountain_bike integer,
+    bm_weight_a_to_b integer,
+    bm_weight_tracked integer,
+    bm_weight_road_bike_tracked integer,
+    bm_weight_mountain_bike_tracked integer,
+    bm_weight_a_to_b_tracked integer
 );
 
 -- Create osm_transportation_merge_linestring_gen_z10 as a copy of osm_transportation_merge_linestring_gen_z11 but
@@ -361,6 +369,33 @@ ON CONFLICT (id, source_id) DO NOTHING;
 -- Drop temporary Merged-LineString to Source-LineStrings-ID column
 ALTER TABLE osm_transportation_merge_linestring_gen_z11 DROP COLUMN IF EXISTS source_ids;
 
+-- Update Route-Processing Aggregations
+-- Execute after indexes have been created on osm_transportation_merge_linestring_gen_z11 to improve performance
+UPDATE osm_transportation_merge_linestring_gen_z11 SET bm_weight = q.bm_weight,
+                                                       bm_weight_road_bike = q.bm_weight_road_bike,
+                                                       bm_weight_mountain_bike = q.bm_weight_mountain_bike,
+                                                       bm_weight_a_to_b = q.bm_weight_a_to_b,
+                                                       bm_weight_tracked = q.bm_weight_tracked,
+                                                       bm_weight_road_bike_tracked = q.bm_weight_road_bike_tracked,
+                                                       bm_weight_mountain_bike_tracked = q.bm_weight_mountain_bike_tracked,
+                                                       bm_weight_a_to_b_tracked = q.bm_weight_a_to_b_tracked
+FROM (
+    SELECT s.id, ROUND(SUM(NULLIF(bm_weight, '')::NUMERIC))::int AS bm_weight,
+           ROUND(SUM(NULLIF(bm_weight_road_bike, '')::NUMERIC))::int AS bm_weight_road_bike,
+           ROUND(SUM(NULLIF(bm_weight_mountain_bike, '')::NUMERIC))::int AS bm_weight_mountain_bike,
+           ROUND(SUM(NULLIF(bm_weight_a_to_b, '')::NUMERIC))::int AS bm_weight_a_to_b,
+           ROUND(SUM(NULLIF(bm_weight_tracked, '')::NUMERIC))::int AS bm_weight_tracked,
+           ROUND(SUM(NULLIF(bm_weight_road_bike_tracked, '')::NUMERIC))::int AS bm_weight_road_bike_tracked,
+           ROUND(SUM(NULLIF(bm_weight_mountain_bike_tracked, '')::NUMERIC))::int AS bm_weight_mountain_bike_tracked,
+           ROUND(SUM(NULLIF(bm_weight_a_to_b_tracked, '')::NUMERIC))::int AS bm_weight_a_to_b_tracked
+    FROM osm_transportation_merge_linestring_gen_z11_source_ids s
+    JOIN osm_highway_linestring_gen_z11 ON (
+        osm_highway_linestring_gen_z11.osm_id = s.source_id
+    )
+    GROUP BY s.id
+) q
+WHERE osm_transportation_merge_linestring_gen_z11.id = q.id;
+
 CREATE SCHEMA IF NOT EXISTS transportation;
 
 CREATE TABLE IF NOT EXISTS transportation.changes_z9_z10
@@ -411,7 +446,15 @@ BEGIN
         access,
         toll,
         visible_layer(geometry, layer, 11) AS layer,
-        cycleway
+        cycleway,
+        bm_weight,
+        bm_weight_road_bike,
+        bm_weight_mountain_bike,
+        bm_weight_a_to_b,
+        bm_weight_tracked,
+        bm_weight_road_bike_tracked,
+        bm_weight_mountain_bike_tracked,
+        bm_weight_a_to_b_tracked
     FROM osm_transportation_merge_linestring_gen_z11
     WHERE (full_update IS TRUE OR EXISTS(
             SELECT NULL FROM transportation.changes_z9_z10
@@ -431,7 +474,14 @@ BEGIN
                                    bicycle = excluded.bicycle, foot = excluded.foot, horse = excluded.horse,
                                    mtb_scale = excluded.mtb_scale, sac_scale = excluded.sac_scale,
                                    access = excluded.access, toll = excluded.toll, layer = excluded.layer,
-                                   cycleway = excluded.cycleway;
+                                   cycleway = excluded.cycleway, bm_weight = excluded.bm_weight,
+                                   bm_weight_road_bike = excluded.bm_weight_road_bike,
+                                   bm_weight_mountain_bike = excluded.bm_weight_mountain_bike,
+                                   bm_weight_a_to_b = excluded.bm_weight_a_to_b,
+                                   bm_weight_tracked = excluded.bm_weight_tracked,
+                                   bm_weight_road_bike_tracked = excluded.bm_weight_road_bike_tracked,
+                                   bm_weight_mountain_bike_tracked = excluded.bm_weight_mountain_bike_tracked,
+                                   bm_weight_a_to_b_tracked = excluded.bm_weight_a_to_b_tracked;
 
     -- Remove entries which have been deleted from source table
     DELETE FROM osm_transportation_merge_linestring_gen_z9
@@ -466,7 +516,15 @@ BEGIN
         access,
         toll,
         visible_layer(geometry, layer, 10) AS layer,
-        cycleway
+        cycleway,
+        bm_weight,
+        bm_weight_road_bike,
+        bm_weight_mountain_bike,
+        bm_weight_a_to_b,
+        bm_weight_tracked,
+        bm_weight_road_bike_tracked,
+        bm_weight_mountain_bike_tracked,
+        bm_weight_a_to_b_tracked
     FROM osm_transportation_merge_linestring_gen_z10
     WHERE full_update IS TRUE OR EXISTS(
             SELECT NULL FROM transportation.changes_z9_z10
@@ -480,7 +538,14 @@ BEGIN
                                    bicycle = excluded.bicycle, foot = excluded.foot, horse = excluded.horse,
                                    mtb_scale = excluded.mtb_scale, sac_scale = excluded.sac_scale,
                                    access = excluded.access, toll = excluded.toll, layer = excluded.layer,
-                                   cycleway = excluded.cycleway;
+                                   cycleway = excluded.cycleway, bm_weight = excluded.bm_weight,
+                                   bm_weight_road_bike = excluded.bm_weight_road_bike,
+                                   bm_weight_mountain_bike = excluded.bm_weight_mountain_bike,
+                                   bm_weight_a_to_b = excluded.bm_weight_a_to_b,
+                                   bm_weight_tracked = excluded.bm_weight_tracked,
+                                   bm_weight_road_bike_tracked = excluded.bm_weight_road_bike_tracked,
+                                   bm_weight_mountain_bike_tracked = excluded.bm_weight_mountain_bike_tracked,
+                                   bm_weight_a_to_b_tracked = excluded.bm_weight_a_to_b_tracked;
 
     -- noinspection SqlWithoutWhere
     DELETE FROM transportation.changes_z9_z10;
@@ -514,7 +579,15 @@ CREATE TABLE IF NOT EXISTS osm_transportation_merge_linestring_gen_z8(
     is_tunnel boolean,
     is_ford boolean,
     expressway boolean,
-    z_order integer
+    z_order integer,
+    bm_weight integer,
+    bm_weight_road_bike integer,
+    bm_weight_mountain_bike integer,
+    bm_weight_a_to_b integer,
+    bm_weight_tracked integer,
+    bm_weight_road_bike_tracked integer,
+    bm_weight_mountain_bike_tracked integer,
+    bm_weight_a_to_b_tracked integer
 );
 
 -- Create osm_transportation_merge_linestring_gen_z7 as a copy of osm_transportation_merge_linestring_gen_z8 but
@@ -694,6 +767,31 @@ ON CONFLICT (id, source_id) DO NOTHING;
 -- Drop temporary Merged-LineString to Source-LineStrings-ID column
 ALTER TABLE osm_transportation_merge_linestring_gen_z8 DROP COLUMN IF EXISTS source_ids;
 
+-- Update Route-Processing Aggregations
+-- Execute after indexes have been created on osm_transportation_merge_linestring_gen_z11 to improve performance
+UPDATE osm_transportation_merge_linestring_gen_z8 SET  bm_weight = q.bm_weight,
+                                                       bm_weight_road_bike = q.bm_weight_road_bike,
+                                                       bm_weight_mountain_bike = q.bm_weight_mountain_bike,
+                                                       bm_weight_a_to_b = q.bm_weight_a_to_b,
+                                                       bm_weight_tracked = q.bm_weight_tracked,
+                                                       bm_weight_road_bike_tracked = q.bm_weight_road_bike_tracked,
+                                                       bm_weight_mountain_bike_tracked = q.bm_weight_mountain_bike_tracked,
+                                                       bm_weight_a_to_b_tracked = q.bm_weight_a_to_b_tracked
+FROM (
+    SELECT s.id, SUM(bm_weight)::int AS bm_weight,
+           SUM(bm_weight_road_bike)::int AS bm_weight_road_bike,
+           SUM(bm_weight_mountain_bike)::int AS bm_weight_mountain_bike,
+           SUM(bm_weight_a_to_b)::int AS bm_weight_a_to_b,
+           SUM(bm_weight_tracked)::int AS bm_weight_tracked,
+           SUM(bm_weight_road_bike_tracked)::int AS bm_weight_road_bike_tracked,
+           SUM(bm_weight_mountain_bike_tracked)::int AS bm_weight_mountain_bike_tracked,
+           SUM(bm_weight_a_to_b_tracked)::int AS bm_weight_a_to_b_tracked
+    FROM osm_transportation_merge_linestring_gen_z8_source_ids s
+    JOIN osm_transportation_merge_linestring_gen_z9 ON (osm_transportation_merge_linestring_gen_z9.id = s.source_id)
+    GROUP BY s.id
+) q
+WHERE osm_transportation_merge_linestring_gen_z8.id = q.id;
+
 CREATE TABLE IF NOT EXISTS transportation.changes_z4_z5_z6_z7
 (
     is_old boolean,
@@ -733,7 +831,15 @@ BEGIN
         visible_brunnel(geometry, is_tunnel, 8) AS is_tunnel,
         visible_brunnel(geometry, is_ford, 8) AS is_ford,
         expressway,
-        z_order
+        z_order,
+        bm_weight,
+        bm_weight_road_bike,
+        bm_weight_mountain_bike,
+        bm_weight_a_to_b,
+        bm_weight_tracked,
+        bm_weight_road_bike_tracked,
+        bm_weight_mountain_bike_tracked,
+        bm_weight_a_to_b_tracked
     FROM osm_transportation_merge_linestring_gen_z8
         -- Current view: motorway/trunk/primary
     WHERE
@@ -746,7 +852,14 @@ BEGIN
     ON CONFLICT (id) DO UPDATE SET osm_id = excluded.osm_id, highway = excluded.highway, network = excluded.network,
                                    construction = excluded.construction, is_bridge = excluded.is_bridge,
                                    is_tunnel = excluded.is_tunnel, is_ford = excluded.is_ford,
-                                   expressway = excluded.expressway, z_order = excluded.z_order;
+                                   expressway = excluded.expressway, z_order = excluded.z_order,
+                                   bm_weight = excluded.bm_weight, bm_weight_road_bike = excluded.bm_weight_road_bike,
+                                   bm_weight_mountain_bike = excluded.bm_weight_mountain_bike,
+                                   bm_weight_a_to_b = excluded.bm_weight_a_to_b,
+                                   bm_weight_tracked = excluded.bm_weight_tracked,
+                                   bm_weight_road_bike_tracked = excluded.bm_weight_road_bike_tracked,
+                                   bm_weight_mountain_bike_tracked = excluded.bm_weight_mountain_bike_tracked,
+                                   bm_weight_a_to_b_tracked = excluded.bm_weight_a_to_b_tracked;
 
     -- Analyze source table
     ANALYZE osm_transportation_merge_linestring_gen_z7;
@@ -1126,6 +1239,7 @@ BEGIN
     ALTER TABLE osm_transportation_merge_linestring_gen_z11 ADD COLUMN IF NOT EXISTS new_source_ids BIGINT[];
     ALTER TABLE osm_transportation_merge_linestring_gen_z11 ADD COLUMN IF NOT EXISTS old_source_ids BIGINT[];
 
+    CREATE TEMPORARY TABLE updated_relations AS
     WITH inserted_linestrings AS (
         -- Merge LineStrings of each cluster and insert them
         INSERT INTO osm_transportation_merge_linestring_gen_z11(geometry, new_source_ids, old_source_ids, highway,
@@ -1163,28 +1277,59 @@ BEGIN
         GROUP BY cluster_group, cluster, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway,
                  bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway
         RETURNING id, new_source_ids, old_source_ids, geometry
+    ) , inserted_relations AS (
+        -- Store OSM-IDs of Source-LineStrings by intersecting Merged-LineStrings with their sources.
+        -- This is required because ST_LineMerge only merges across singular intersections and groups its output into a
+        -- MultiLineString if more than two LineStrings form an intersection or no intersection could be found.
+        INSERT INTO osm_transportation_merge_linestring_gen_z11_source_ids (id, source_id)
+        SELECT m.id, source_id
+        FROM (
+            SELECT id, source_id, geometry
+            FROM inserted_linestrings
+            CROSS JOIN LATERAL (
+                SELECT DISTINCT all_source_ids.source_id
+                FROM unnest(
+                    array_cat(inserted_linestrings.new_source_ids, inserted_linestrings.old_source_ids)
+                ) AS all_source_ids(source_id)
+            ) source_ids
+        ) m
+        JOIN osm_highway_linestring_gen_z11 s ON (m.source_id = s.osm_id)
+        WHERE ST_Intersects(s.geometry, m.geometry)
+        ON CONFLICT (id, source_id) DO NOTHING
+        RETURNING id, source_id
     )
-    -- Store OSM-IDs of Source-LineStrings by intersecting Merged-LineStrings with their sources.
-    -- This is required because ST_LineMerge only merges across singular intersections and groups its output into a
-    -- MultiLineString if more than two LineStrings form an intersection or no intersection could be found.
-    INSERT INTO osm_transportation_merge_linestring_gen_z11_source_ids (id, source_id)
-    SELECT m.id, source_id
+    SELECT * FROM inserted_relations;
+
+    -- -- Drop temporary tables early to save resources
+    DROP TABLE clustered_linestrings_to_merge;
+
+    -- Update Route-Processing aggregations
+    UPDATE osm_transportation_merge_linestring_gen_z11 SET bm_weight = q.bm_weight,
+                                                           bm_weight_road_bike = q.bm_weight_road_bike,
+                                                           bm_weight_mountain_bike = q.bm_weight_mountain_bike,
+                                                           bm_weight_a_to_b = q.bm_weight_a_to_b,
+                                                           bm_weight_tracked = q.bm_weight_tracked,
+                                                           bm_weight_road_bike_tracked = q.bm_weight_road_bike_tracked,
+                                                           bm_weight_mountain_bike_tracked = q.bm_weight_mountain_bike_tracked,
+                                                           bm_weight_a_to_b_tracked = q.bm_weight_a_to_b_tracked
     FROM (
-        SELECT id, source_id, geometry
-        FROM inserted_linestrings
-        CROSS JOIN LATERAL (
-            SELECT DISTINCT all_source_ids.source_id
-            FROM unnest(
-                array_cat(inserted_linestrings.new_source_ids, inserted_linestrings.old_source_ids)
-            ) AS all_source_ids(source_id)
-        ) source_ids
-    ) m
-    JOIN osm_highway_linestring_gen_z11 s ON (m.source_id = s.osm_id)
-    WHERE ST_Intersects(s.geometry, m.geometry)
-    ON CONFLICT (id, source_id) DO NOTHING;
+        SELECT updated_relations.id,
+               ROUND(SUM(NULLIF(bm_weight, '')::NUMERIC))::int AS bm_weight,
+               ROUND(SUM(NULLIF(bm_weight_road_bike, '')::NUMERIC))::int AS bm_weight_road_bike,
+               ROUND(SUM(NULLIF(bm_weight_mountain_bike, '')::NUMERIC))::int AS bm_weight_mountain_bike,
+               ROUND(SUM(NULLIF(bm_weight_a_to_b, '')::NUMERIC))::int AS bm_weight_a_to_b,
+               ROUND(SUM(NULLIF(bm_weight_tracked, '')::NUMERIC))::int AS bm_weight_tracked,
+               ROUND(SUM(NULLIF(bm_weight_road_bike_tracked, '')::NUMERIC))::int AS bm_weight_road_bike_tracked,
+               ROUND(SUM(NULLIF(bm_weight_mountain_bike_tracked, '')::NUMERIC))::int AS bm_weight_mountain_bike_tracked,
+               ROUND(SUM(NULLIF(bm_weight_a_to_b_tracked, '')::NUMERIC))::int AS bm_weight_a_to_b_tracked
+        FROM updated_relations
+        JOIN osm_highway_linestring_gen_z11 ON (osm_highway_linestring_gen_z11.osm_id = updated_relations.source_id)
+        GROUP BY updated_relations.id
+    ) q
+    WHERE osm_transportation_merge_linestring_gen_z11.id = q.id;
 
     -- Cleanup remaining table
-    DROP TABLE clustered_linestrings_to_merge;
+    DROP TABLE updated_relations;
 
     -- Drop  temporary Merged-LineString to Source-LineStrings-ID columns
     ALTER TABLE osm_transportation_merge_linestring_gen_z11 DROP COLUMN IF EXISTS new_source_ids;
@@ -1424,6 +1569,7 @@ BEGIN
     ALTER TABLE osm_transportation_merge_linestring_gen_z8 ADD COLUMN IF NOT EXISTS new_source_ids INT[];
     ALTER TABLE osm_transportation_merge_linestring_gen_z8 ADD COLUMN IF NOT EXISTS old_source_ids INT[];
 
+    CREATE TEMPORARY TABLE updated_relations AS
     WITH inserted_linestrings AS (
         -- Merge LineStrings of each cluster and insert them
         INSERT INTO osm_transportation_merge_linestring_gen_z8(geometry, new_source_ids, old_source_ids, highway,
@@ -1450,28 +1596,61 @@ BEGIN
         FROM clustered_linestrings_to_merge
         GROUP BY cluster_group, cluster, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway
         RETURNING id, new_source_ids, old_source_ids, geometry
+    ), inserted_relations AS (
+        -- Store OSM-IDs of Source-LineStrings by intersecting Merged-LineStrings with their sources. This required because
+        -- ST_LineMerge only merges across singular intersections and groups its output into a MultiLineString if
+        -- more than two LineStrings form an intersection or no intersection could be found.
+        INSERT INTO osm_transportation_merge_linestring_gen_z8_source_ids (id, source_id)
+        SELECT m.id, m.source_id
+        FROM (
+            SELECT id, source_id, geometry
+            FROM inserted_linestrings
+            CROSS JOIN LATERAL (
+                SELECT DISTINCT all_source_ids.source_id
+                FROM unnest(
+                    array_cat(inserted_linestrings.new_source_ids, inserted_linestrings.old_source_ids)
+                ) AS all_source_ids(source_id)
+            ) source_ids
+        ) m
+        JOIN osm_transportation_merge_linestring_gen_z9 s ON (m.source_id = s.id)
+        WHERE ST_Intersects(s.geometry, m.geometry)
+        ON CONFLICT (id, source_id) DO NOTHING
+        RETURNING id, source_id
     )
-    -- Store OSM-IDs of Source-LineStrings by intersecting Merged-LineStrings with their sources. This required because
-    -- ST_LineMerge only merges across singular intersections and groups its output into a MultiLineString if
-    -- more than two LineStrings form an intersection or no intersection could be found.
-    INSERT INTO osm_transportation_merge_linestring_gen_z8_source_ids (id, source_id)
-    SELECT m.id, m.source_id
+    SELECT * FROM inserted_relations;
+
+    -- Drop temporary tables early to save resources
+    DROP TABLE clustered_linestrings_to_merge;
+
+    -- Update Route-Processing aggregations
+    UPDATE osm_transportation_merge_linestring_gen_z8 SET bm_weight = q.bm_weight,
+                                                          bm_weight_road_bike = q.bm_weight_road_bike,
+                                                          bm_weight_mountain_bike = q.bm_weight_mountain_bike,
+                                                          bm_weight_a_to_b = q.bm_weight_a_to_b,
+                                                          bm_weight_tracked = q.bm_weight_tracked,
+                                                          bm_weight_road_bike_tracked = q.bm_weight_road_bike_tracked,
+                                                          bm_weight_mountain_bike_tracked = q.bm_weight_mountain_bike_tracked,
+                                                          bm_weight_a_to_b_tracked = q.bm_weight_a_to_b_tracked
     FROM (
-        SELECT id, source_id, geometry
-        FROM inserted_linestrings
-        CROSS JOIN LATERAL (
-            SELECT DISTINCT all_source_ids.source_id
-            FROM unnest(
-                array_cat(inserted_linestrings.new_source_ids, inserted_linestrings.old_source_ids)
-            ) AS all_source_ids(source_id)
-        ) source_ids
-    ) m
-    JOIN osm_transportation_merge_linestring_gen_z9 s ON (m.source_id = s.id)
-    WHERE ST_Intersects(s.geometry, m.geometry)
-    ON CONFLICT (id, source_id) DO NOTHING;
+        SELECT updated_relations.id,
+               SUM(bm_weight)::int AS bm_weight,
+               SUM(bm_weight_road_bike)::int AS bm_weight_road_bike,
+               SUM(bm_weight_mountain_bike)::int AS bm_weight_mountain_bike,
+               SUM(bm_weight_a_to_b)::int AS bm_weight_a_to_b,
+               SUM(bm_weight_tracked)::int AS bm_weight_tracked,
+               SUM(bm_weight_road_bike_tracked)::int AS bm_weight_road_bike_tracked,
+               SUM(bm_weight_mountain_bike_tracked)::int AS bm_weight_mountain_bike_tracked,
+               SUM(bm_weight_a_to_b_tracked)::int AS bm_weight_a_to_b_tracked
+        FROM updated_relations
+        JOIN osm_transportation_merge_linestring_gen_z9 ON (
+            osm_transportation_merge_linestring_gen_z9.id = updated_relations.source_id
+        )
+        GROUP BY updated_relations.id
+    ) q
+    WHERE osm_transportation_merge_linestring_gen_z8.id = q.id;
 
     -- Cleanup
-    DROP TABLE clustered_linestrings_to_merge;
+    DROP TABLE updated_relations;
 
     -- Drop temporary Merged-LineString to Source-LineStrings-ID columns
     ALTER TABLE osm_transportation_merge_linestring_gen_z8 DROP COLUMN IF EXISTS new_source_ids;
