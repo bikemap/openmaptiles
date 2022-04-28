@@ -198,6 +198,24 @@ tables:
     - name: cycleway_street
       key: cyclestreet
       type: string
+    - name: bm_weight_road_bike
+      key: 'bm-weight-road-bike'
+      type: integer
+    - name: bm_weight_mountain_bike
+      key: 'bm-weight-mountain-bike'
+      type: integer
+    - name: bm_weight_a_to_b
+      key: 'bm-weight-a-to-b'
+      type: integer
+    - name: bm_weight_road_bike_tracked
+      key: 'bm-weight-road-bike-tracked'
+      type: integer
+    - name: bm_weight_mountain_bike_tracked
+      key: 'bm-weight-mountain-bike-tracked'
+      type: integer
+    - name: bm_weight_a_to_b_tracked
+      key: 'bm-weight-a-to-b-tracked'
+      type: integer
     - *ref
     - *network
     - *z_order
