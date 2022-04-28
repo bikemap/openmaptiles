@@ -101,10 +101,16 @@ SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
        cycleway_both,
        cycleway_left,
        cycleway_right,
-       cycleway_street
+       cycleway_street,
+       bm_weight_road_bike,
+       bm_weight_mountain_bike,
+       bm_weight_a_to_b,
+       bm_weight_road_bike_tracked,
+       bm_weight_mountain_bike_tracked,
+       bm_weight_a_to_b_tracked
 FROM osm_highway_linestring_gen_z11
 -- mapping.yaml pre-filter: motorway/trunk/primary/secondary/tertiary, with _link variants, construction, ST_IsValid()
-GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street
+GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z11_geometry_idx
     ON osm_transportation_merge_linestring_gen_z11 USING gist (geometry);
@@ -134,7 +140,13 @@ SELECT ST_Simplify(geometry, ZRes(12)) AS geometry,
        cycleway_both,
        cycleway_left,
        cycleway_right,
-       cycleway_street
+       cycleway_street,
+       bm_weight_road_bike,
+       bm_weight_mountain_bike,
+       bm_weight_a_to_b,
+       bm_weight_road_bike_tracked,
+       bm_weight_mountain_bike_tracked,
+       bm_weight_a_to_b_tracked
 FROM osm_transportation_merge_linestring_gen_z11
 WHERE network in ('icn', 'ncn', 'rcn') OR (
         highway NOT IN ('tertiary', 'tertiary_link', 'busway')
@@ -169,7 +181,13 @@ SELECT ST_Simplify(geometry, ZRes(11)) AS geometry,
        cycleway_both,
        cycleway_left,
        cycleway_right,
-       cycleway_street
+       cycleway_street,
+       bm_weight_road_bike,
+       bm_weight_mountain_bike,
+       bm_weight_a_to_b,
+       bm_weight_road_bike_tracked,
+       bm_weight_mountain_bike_tracked,
+       bm_weight_a_to_b_tracked
 FROM osm_transportation_merge_linestring_gen_z10
      -- Current view: motorway/primary/secondary, with _link variants and construction 
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
