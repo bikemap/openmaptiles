@@ -76,41 +76,44 @@ BEGIN
     SELECT
       rm.id,
       rm.osm_id,
-      COALESCE(srm.network, rm.network) AS network,
-      osm_route_member_network_type(COALESCE(srm.network, rm.network)) AS network_type,
+      COALESCE(NULLIF(srm.network, ''), rm.network) AS network,
+      osm_route_member_network_type(COALESCE(NULLIF(srm.network, ''), rm.network)) AS network_type,
       DENSE_RANK() OVER (
           PARTITION BY rm.member
-          ORDER BY osm_route_member_network_type(COALESCE(srm.network, rm.network)),
-                   COALESCE(srm.network, rm.network),
-                   LENGTH(COALESCE(srm.ref, rm.ref)),
-                   COALESCE(srm.ref, rm.ref)
+          ORDER BY osm_route_member_network_type(COALESCE(NULLIF(srm.network, ''), rm.network)),
+                   COALESCE(NULLIF(srm.network, ''), rm.network),
+                   LENGTH(COALESCE(NULLIF(srm.ref, ''), rm.ref)),
+                   COALESCE(NULLIF(srm.ref, ''), rm.ref)
           ) AS concurrency_index,
       CASE
-           WHEN COALESCE(srm.network, rm.network) IN ('iwn', 'nwn', 'rwn') THEN 1
-           WHEN COALESCE(srm.network, rm.network) = 'lwn' THEN 2
+           WHEN COALESCE(NULLIF(srm.network, ''), rm.network) IN ('iwn', 'nwn', 'rwn') THEN 1
+           WHEN COALESCE(NULLIF(srm.network, ''), rm.network) = 'lwn' THEN 2
            WHEN rm.osmc_symbol || rm.colour <> '' THEN 2
       END AS rank,
-      COALESCE(srm.name, rm.name) AS name
+      COALESCE(NULLIF(srm.name, ''), rm.name) AS name
     FROM osm_route_member rm
     LEFT OUTER JOIN (
-        SELECT ordered_superroute_members.* FROM (
+        SELECT DISTINCT ON (ordered_superroute_members.member) NULL, ordered_superroute_members.* FROM (
             WITH RECURSIVE recursive_superroute_member AS (
-                SELECT osm_id, osm_id AS parent_osm_id, 0 AS hierachy_index, member, network, ref, name
+                SELECT osm_id AS parent_osm_id, osm_id, 0 AS hierachy_index, member, role, network, ref, name
                 FROM osm_superroute_member
                 UNION
-                SELECT recursive_superroute_member.osm_id, parent.osm_id AS parent_osm_id,
+                SELECT parent.osm_id AS parent_osm_id, recursive_superroute_member.osm_id,
                        recursive_superroute_member.hierachy_index + 1 AS hierarchy_index,
-                       recursive_superroute_member.member, parent.network, parent.ref, parent.name
-                FROM recursive_superroute_member
-                JOIN osm_superroute_member parent ON parent.member = recursive_superroute_member.parent_osm_id
+                       recursive_superroute_member.member, parent.role, parent.network, parent.ref, parent.name
+                FROM osm_superroute_member parent
+                JOIN recursive_superroute_member ON parent.member = recursive_superroute_member.parent_osm_id
             )
             SELECT *, DENSE_RANK() OVER (
                 PARTITION BY recursive_superroute_member.member
                 ORDER BY osm_route_member_network_type(recursive_superroute_member.network),
                          recursive_superroute_member.hierachy_index DESC,
+                         recursive_superroute_member.role = 'alternative',
                          recursive_superroute_member.network,
                          LENGTH(recursive_superroute_member.ref),
-                         recursive_superroute_member.ref
+                         recursive_superroute_member.ref,
+                         LENGTH(recursive_superroute_member.name),
+                         NULLIF(recursive_superroute_member.name, '')
                 ) AS dense_rank
             FROM recursive_superroute_member
         ) AS ordered_superroute_members
@@ -150,41 +153,44 @@ INSERT INTO osm_route_member (id, osm_id, network, network_type, concurrency_ind
   SELECT
   rm.id,
   rm.osm_id,
-  COALESCE(srm.network, rm.network) AS network,
-  osm_route_member_network_type(COALESCE(srm.network, rm.network)) AS network_type,
+  COALESCE(NULLIF(srm.network, ''), rm.network) AS network,
+  osm_route_member_network_type(COALESCE(NULLIF(srm.network, ''), rm.network)) AS network_type,
   DENSE_RANK() OVER (
       PARTITION BY rm.member
-      ORDER BY osm_route_member_network_type(COALESCE(srm.network, rm.network)),
-               COALESCE(srm.network, rm.network),
-               LENGTH(rm.ref),
-               rm.ref
+      ORDER BY osm_route_member_network_type(COALESCE(NULLIF(srm.network, ''), rm.network)),
+               COALESCE(NULLIF(srm.network, ''), rm.network),
+               LENGTH(COALESCE(NULLIF(srm.ref, ''), rm.ref)),
+               COALESCE(NULLIF(srm.ref, ''), rm.ref)
       ) AS concurrency_index,
   CASE
-       WHEN COALESCE(srm.network, rm.network) IN ('iwn', 'nwn', 'rwn') THEN 1
-       WHEN COALESCE(srm.network, rm.network) = 'lwn' THEN 2
+       WHEN COALESCE(NULLIF(srm.network, ''), rm.network) IN ('iwn', 'nwn', 'rwn') THEN 1
+       WHEN COALESCE(NULLIF(srm.network, ''), rm.network) = 'lwn' THEN 2
        WHEN rm.osmc_symbol || rm.colour <> '' THEN 2
   END AS rank,
-  COALESCE(srm.name, rm.name) AS name
+  COALESCE(NULLIF(srm.name, ''), rm.name) AS name
   FROM osm_route_member rm
   LEFT OUTER JOIN (
-        SELECT ordered_superroute_members.* FROM (
+        SELECT DISTINCT ON (ordered_superroute_members.member) NULL, ordered_superroute_members.* FROM (
             WITH RECURSIVE recursive_superroute_member AS (
-                SELECT osm_id, osm_id AS parent_osm_id, 0 AS hierachy_index, member, network, ref, name
+                SELECT osm_id AS parent_osm_id, osm_id, 0 AS hierachy_index, member, role, network, ref, name
                 FROM osm_superroute_member
                 UNION
-                SELECT recursive_superroute_member.osm_id, parent.osm_id AS parent_osm_id,
+                SELECT parent.osm_id AS parent_osm_id, recursive_superroute_member.osm_id,
                        recursive_superroute_member.hierachy_index + 1 AS hierarchy_index,
-                       recursive_superroute_member.member, parent.network, parent.ref, parent.name
-                FROM recursive_superroute_member
-                JOIN osm_superroute_member parent ON parent.member = recursive_superroute_member.parent_osm_id
+                       recursive_superroute_member.member, parent.role, parent.network, parent.ref, parent.name
+                FROM osm_superroute_member parent
+                JOIN recursive_superroute_member ON parent.member = recursive_superroute_member.parent_osm_id
             )
             SELECT *, DENSE_RANK() OVER (
                 PARTITION BY recursive_superroute_member.member
                 ORDER BY osm_route_member_network_type(recursive_superroute_member.network),
                          recursive_superroute_member.hierachy_index DESC,
+                         recursive_superroute_member.role = 'alternative',
                          recursive_superroute_member.network,
                          LENGTH(recursive_superroute_member.ref),
-                         recursive_superroute_member.ref
+                         recursive_superroute_member.ref,
+                         LENGTH(recursive_superroute_member.name),
+                         NULLIF(recursive_superroute_member.name, '')
                 ) AS dense_rank
             FROM recursive_superroute_member
         ) AS ordered_superroute_members
