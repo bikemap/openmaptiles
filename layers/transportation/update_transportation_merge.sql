@@ -103,7 +103,19 @@ SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
        cycleway_right,
        cycleway_street
 FROM osm_highway_linestring_gen_z11
--- mapping.yaml pre-filter: motorway/trunk/primary/secondary/tertiary, with _link variants, construction, ST_IsValid()
+WHERE network in ('icn', 'ncn', 'rcn', 'lcn') OR
+      (
+          highway IN (
+              'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'motorway_link', 'trunk_link', 'primary_link',
+              'secondary_link', 'tertiary_link', 'busway'
+          ) OR (
+              highway = 'construction' AND
+              construction IN (
+                  'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'motorway_link', 'trunk_link',
+                  'primary_link', 'secondary_link', 'tertiary_link', 'busway'
+              )
+          )
+      )
 GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z11_geometry_idx
