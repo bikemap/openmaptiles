@@ -19,6 +19,7 @@ services:
       - postgres
     ports:
       - "5432"
+      - "${TILER_DB_PORT:-5433}:5432"
     env_file: .env-postgres
 
   import-data:
