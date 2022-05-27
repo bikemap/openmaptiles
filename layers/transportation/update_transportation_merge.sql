@@ -102,12 +102,14 @@ SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
        cycleway_left,
        cycleway_right,
        cycleway_street,
-       bm_weight_road_bike,
-       bm_weight_mountain_bike,
-       bm_weight_a_to_b,
-       bm_weight_road_bike_tracked,
-       bm_weight_mountain_bike_tracked,
-       bm_weight_a_to_b_tracked
+       ROUND(SUM(NULLIF(bm_weight, '')::NUMERIC))::int AS bm_weight,
+       ROUND(SUM(NULLIF(bm_weight_road_bike, '')::NUMERIC))::int AS bm_weight_road_bike,
+       ROUND(SUM(NULLIF(bm_weight_mountain_bike, '')::NUMERIC))::int AS bm_weight_mountain_bike,
+       ROUND(SUM(NULLIF(bm_weight_a_to_b, '')::NUMERIC))::int AS bm_weight_a_to_b,
+       ROUND(SUM(NULLIF(bm_weight_tracked, '')::NUMERIC))::int AS bm_weight_tracked,
+       ROUND(SUM(NULLIF(bm_weight_road_bike_tracked, '')::NUMERIC))::int AS bm_weight_road_bike_tracked,
+       ROUND(SUM(NULLIF(bm_weight_mountain_bike_tracked, '')::NUMERIC))::int AS bm_weight_mountain_bike_tracked,
+       ROUND(SUM(NULLIF(bm_weight_a_to_b_tracked, '')::NUMERIC))::int AS bm_weight_a_to_b_tracked
 FROM osm_highway_linestring_gen_z11
 WHERE network in ('icn', 'ncn', 'rcn', 'lcn') OR
       (
@@ -153,9 +155,11 @@ SELECT ST_Simplify(geometry, ZRes(12)) AS geometry,
        cycleway_left,
        cycleway_right,
        cycleway_street,
+       bm_weight,
        bm_weight_road_bike,
        bm_weight_mountain_bike,
        bm_weight_a_to_b,
+       bm_weight_tracked,
        bm_weight_road_bike_tracked,
        bm_weight_mountain_bike_tracked,
        bm_weight_a_to_b_tracked
@@ -194,9 +198,11 @@ SELECT ST_Simplify(geometry, ZRes(11)) AS geometry,
        cycleway_left,
        cycleway_right,
        cycleway_street,
+       bm_weight,
        bm_weight_road_bike,
        bm_weight_mountain_bike,
        bm_weight_a_to_b,
+       bm_weight_tracked,
        bm_weight_road_bike_tracked,
        bm_weight_mountain_bike_tracked,
        bm_weight_a_to_b_tracked
@@ -218,7 +224,15 @@ SELECT ST_Simplify(ST_LineMerge(ST_Collect(geometry)), ZRes(10)) AS geometry,
        is_tunnel,
        is_ford,
        expressway,
-       min(z_order) as z_order
+       min(z_order) as z_order,
+       SUM(bm_weight)::int AS bm_weight,
+       SUM(bm_weight_road_bike)::int  AS bm_weight_road_bike,
+       SUM(bm_weight_mountain_bike)::int  AS bm_weight_mountain_bike,
+       SUM(bm_weight_a_to_b)::int  AS bm_weight_a_to_b,
+       SUM(bm_weight_tracked)::int  AS bm_weight_tracked,
+       SUM(bm_weight_road_bike_tracked)::int  AS bm_weight_road_bike_tracked,
+       SUM(bm_weight_mountain_bike_tracked)::int  AS bm_weight_mountain_bike_tracked,
+       SUM(bm_weight_a_to_b_tracked)::int  AS bm_weight_a_to_b_tracked
 FROM osm_transportation_merge_linestring_gen_z9
 WHERE (network in ('icn', 'ncn', 'rcn') OR
        highway IN ('motorway', 'trunk', 'primary') OR
@@ -242,7 +256,15 @@ SELECT ST_Simplify(geometry, ZRes(9)) AS geometry,
        is_tunnel,
        is_ford,
        expressway,
-       z_order
+       z_order,
+       bm_weight,
+       bm_weight_road_bike,
+       bm_weight_mountain_bike,
+       bm_weight_a_to_b,
+       bm_weight_tracked,
+       bm_weight_road_bike_tracked,
+       bm_weight_mountain_bike_tracked,
+       bm_weight_a_to_b_tracked
 FROM osm_transportation_merge_linestring_gen_z8
      -- Current view: motorway/trunk/primary
 WHERE network IN ('icn', 'ncn') OR highway IN ('motorway', 'trunk', 'primary')
