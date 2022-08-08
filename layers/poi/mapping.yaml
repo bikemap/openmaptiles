@@ -374,6 +374,45 @@ def_poi_fields: &poi_fields
   - name: network
     key: network
     type: string
+  - name: phone
+    key: phone
+    type: string
+  - name: email
+    key: email
+    type: string
+  - name: website
+    key: website
+    type: string
+  - name: opening_hours
+    key: opening_hours
+    type: string
+  - name: addr_full
+    key: addr:full
+    type: string
+  - name: addr_housenumber
+    key: addr:housenumber
+    type: string
+  - name: addr_street
+    key: addr:street
+    type: string
+  - name: addr_city
+    key: addr:city
+    type: string
+  - name: addr_postcode
+    key: addr:postcode
+    type: string
+  - name: addr_state
+    key: addr:state
+    type: string
+  - name: addr_district
+    key: addr:district
+    type: string
+  - name: addr_suburb
+    key: addr:suburb
+    type: string
+  - name: addr_province
+    key: addr:province
+    type: string
 
 def_poi_mapping: &poi_mapping
   aerialway: *poi_mapping_aerialway
