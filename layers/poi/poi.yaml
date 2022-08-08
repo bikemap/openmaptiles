@@ -141,12 +141,28 @@ layer:
           Original value of [`indoor`](http://wiki.openstreetmap.org/wiki/Key:indoor) tag.
       values:
       - 1
+    phone:
+      description: |
+        Original value of [`phone`](https://wiki.openstreetmap.org/wiki/Key:phone) tag.
+    email:
+      description: |
+        Original value of [`phone`](https://wiki.openstreetmap.org/wiki/Key:email) tag.
+    website:
+      description: |
+        Original value of [`phone`](https://wiki.openstreetmap.org/wiki/Key:website) tag.
+    opening_hours:
+      description: |
+        Original value of [`phone`](https://wiki.openstreetmap.org/wiki/Key:opening_hours) tag.
+    address:
+      description:
+        This is a concatenation of the different address keys available, example addr:housenumber + addr:street
+      
   datasource:
     geometry_field: geometry
     key_field: osm_id
     key_field_as_attribute: no
     srid: 900913
-    query: (SELECT osm_id, geometry, name, name_en, name_de, {name_languages}, class, subclass, agg_stop, layer, level, indoor, rank FROM layer_poi(!bbox!, z(!scale_denominator!), !pixel_width!)) AS t
+    query: (SELECT osm_id, geometry, name, name_en, name_de, {name_languages}, class, subclass, agg_stop, layer, level, indoor, rank, phone, email, website, opening_hours, address FROM layer_poi(!bbox!, z(!scale_denominator!), !pixel_width!)) AS t
 schema:
   - ./public_transport_stop_type.sql
   - ./class.sql
