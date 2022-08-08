@@ -57,8 +57,18 @@ BEGIN
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 
+    UPDATE osm_poi_point as points
+    SET country = country.country_code
+    FROM public.country_osm_grid as country
+    WHERE (full_update OR osm_id IN (SELECT osm_id FROM poi_point.osm_ids))
+      AND country.country_code in ('at', 'de', 'nl', 'no', 'ch', 'pl', 'br', 'ru')
+      AND ST_Transform(points.geometry::geometry, 4326) && country.geometry::geometry;
+
 END;
 $$ LANGUAGE plpgsql;
+
+ALTER TABLE osm_poi_point
+    ADD COLUMN IF NOT EXISTS country text DEFAULT NULL;
 
 SELECT update_osm_poi_point(TRUE);
 
@@ -169,3 +179,38 @@ CREATE CONSTRAINT TRIGGER trigger_refresh
     INITIALLY DEFERRED
     FOR EACH ROW
 EXECUTE PROCEDURE poi_point.refresh();
+
+CREATE OR REPLACE FUNCTION bm_address_osm_poi_point(country_code TEXT, addr_full TEXT, addr_housenumber TEXT, addr_street TEXT, addr_city TEXT, addr_suburb TEXT, addr_district TEXT, addr_province TEXT, addr_state TEXT, addr_postcode TEXT)
+    RETURNS text AS
+$$
+SELECT CASE
+        WHEN addr_full IS NOT NULL THEN addr_full
+        WHEN addr_housenumber IS NULL THEN NULL
+        WHEN country_code in ('at', 'de', 'nl', 'no', 'ch', 'pl') THEN concat_ws(',',
+            concat_ws(' ' , addr_street, addr_housenumber),
+            addr_postcode,
+            addr_city
+        )
+        WHEN country_code in ('br') THEN concat_ws(',',
+            concat_ws(addr_street, addr_housenumber),
+            addr_district,
+            addr_state,
+            addr_postcode
+        )
+        WHEN country_code in ('ru') THEN concat_ws(',',
+            concat_ws(' ' , addr_street, addr_housenumber),
+            addr_suburb,
+            addr_district,
+            addr_province,
+            addr_postcode
+        )
+        WHEN country_code not in ('ru','br','at', 'de', 'nl', 'no', 'ch', 'pl') THEN concat_ws(',',
+            concat_ws(' ' , addr_housenumber, addr_street),
+            addr_city,
+            addr_state,
+            addr_postcode
+        )
+        END;
+
+$$ LANGUAGE SQL IMMUTABLE
+                PARALLEL SAFE;
