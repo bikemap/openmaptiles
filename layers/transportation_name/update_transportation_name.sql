@@ -18,6 +18,7 @@ SELECT (ST_Dump(geometry)).geom AS geometry,
        layer,
        indoor,
        network_type AS network,
+       network_name,
        route_1, route_2, route_3, route_4, route_5, route_6,
        z_order,
        route_rank
@@ -35,12 +36,15 @@ FROM (
                 layer,
                 indoor,
                 network_type,
+                network_name,
                 route_1, route_2, route_3, route_4, route_5, route_6,
                 min(z_order) AS z_order,
                 min(route_rank) AS route_rank
          FROM osm_transportation_name_network
-         WHERE tags->'name' <> '' OR ref <> ''
-         GROUP BY tags, ref, highway, subclass, "level", layer, sac_scale, indoor, network_type,
+         WHERE tags->'name' <> '' OR ref <> '' OR (
+                 network_type = ANY('{icn,ncn,rcn,lcn}') AND NULLIF(network_name, '') IS NOT NULL
+               )
+         GROUP BY tags, ref, highway, subclass, "level", layer, sac_scale, indoor, network_type, network_name,
                   route_1, route_2, route_3, route_4, route_5, route_6
          UNION ALL
 
@@ -55,6 +59,7 @@ FROM (
                 layer,
                 NULL AS indoor,
                 NULL AS network_type,
+                NULL AS network_name,
                 NULL AS route_1,
                 NULL AS route_2,
                 NULL AS route_3,
@@ -79,6 +84,7 @@ FROM (
                 layer,
                 NULL AS indoor,
                 NULL AS network_type,
+                NULL AS network_name,
                 NULL AS route_1,
                 NULL AS route_2,
                 NULL AS route_3,
@@ -218,6 +224,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE TABLE IF NOT EXISTS transportation_name.superroute_changes
+(
+    osm_id bigint,
+    UNIQUE (osm_id)
+);
+
+
+CREATE OR REPLACE FUNCTION transportation_name.superroute_member_store() RETURNS trigger AS
+$$
+BEGIN
+
+    INSERT INTO transportation_name.superroute_changes(osm_id) VALUES (
+        (CASE WHEN tg_op IN ('DELETE', 'UPDATE') THEN old.osm_id ELSE new.osm_id END)
+    ) ON CONFLICT DO NOTHING;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION transportation_name.highway_linestring_store() RETURNS trigger AS
 $$
 BEGIN
@@ -346,6 +371,12 @@ CREATE TRIGGER trigger_store_transportation_route_member
     ON osm_route_member
     FOR EACH ROW
 EXECUTE PROCEDURE transportation_name.route_member_store();
+
+CREATE TRIGGER trigger_store_transportation_superroute_member
+    AFTER INSERT OR UPDATE OR DELETE
+    ON osm_superroute_member
+    FOR EACH ROW
+EXECUTE PROCEDURE transportation_name.superroute_member_store();
 
 CREATE TRIGGER trigger_store_transportation_highway_linestring
     AFTER INSERT OR UPDATE OR DELETE
