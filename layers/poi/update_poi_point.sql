@@ -32,8 +32,43 @@ BEGIN
     WHERE COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 
+    UPDATE osm_poi_point as points
+    SET address =
+        CASE
+            WHEN addr_full IS NOT NULL AND addr_full != '' THEN addr_full
+            WHEN country.country_code in ('at', 'de', 'nl', 'no', 'ch', 'pl') THEN concat_ws(',',
+                concat_ws(' ' , tags -> 'addr:street', tags -> 'addr:housenumber'),
+                tags -> 'addr:postcode',
+                tags -> 'addr:city'
+            )
+            WHEN country.country_code in ('br') THEN concat_ws(',',
+                concat_ws(' ' , tags -> 'addr:street', tags -> 'addr:housenumber'),
+                tags -> 'addr_district',
+                tags -> 'addr_state',
+                tags -> 'addr_postcode'
+            )
+            WHEN country.country_code in ('ru') THEN concat_ws(',',
+                concat_ws(' ' , tags -> 'addr:street', tags -> 'addr:housenumber'),
+                tags -> 'addr_suburb',
+                tags -> 'addr_district',
+                tags -> 'addr_province',
+                tags -> 'addr_postcode'
+            )
+            ELSE concat_ws(',',
+                concat_ws(' ' , tags -> 'addr:housenumber', tags -> 'addr:street'),
+                tags -> 'addr_city',
+                tags -> 'addr_state',
+                tags -> 'addr_postcode'
+            )
+        END
+    FROM public.country_osm_grid as country
+    WHERE ST_Intersects(ST_Transform(points.geometry::geometry, 4326), country.geometry::geometry);
+
 END;
 $$ LANGUAGE plpgsql;
+
+ALTER TABLE osm_poi_point
+    ADD COLUMN IF NOT EXISTS address text DEFAULT NULL;
 
 SELECT update_osm_poi_point();
 
