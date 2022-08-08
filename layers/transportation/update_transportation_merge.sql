@@ -28,6 +28,7 @@ SELECT
     layer,
     indoor,
     network_type,
+    network_name,
     route_1, route_2, route_3, route_4, route_5, route_6,
     z_order,
     route_rank
@@ -37,6 +38,7 @@ FROM (
         hl.osm_id,
         transportation_name_tags(hl.geometry, hl.tags, hl.name, hl.name_en, hl.name_de) AS tags,
         rm1.network_type,
+        NULLIF(rm1.name, '') as network_name,
         CASE
             WHEN rm1.network_type IS NOT NULL AND rm1.ref::text <> ''
                 THEN rm1.ref::text
@@ -97,10 +99,15 @@ CREATE TABLE IF NOT EXISTS osm_transportation_merge_linestring_gen_z11(
     sac_scale character varying,
     access text,
     toll boolean,
-    layer integer
+    layer integer,
+    cycleway text,
+    cycleway_both text,
+    cycleway_left text,
+    cycleway_right text,
+    cycleway_street text
 );
 
-INSERT INTO osm_transportation_merge_linestring_gen_z11(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer)
+INSERT INTO osm_transportation_merge_linestring_gen_z11(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street)
 SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
        NULL::bigint AS osm_id,
        highway,
@@ -120,10 +127,28 @@ SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
            WHEN access IN ('private', 'no') THEN 'no'
            ELSE NULL::text END AS access,
        toll,
-       layer
+       layer,
+       cycleway,
+       cycleway_both,
+       cycleway_left,
+       cycleway_right,
+       cycleway_street
 FROM osm_highway_linestring_gen_z11
+WHERE network in ('icn', 'ncn', 'rcn', 'lcn') OR
+      (
+          highway IN (
+              'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'motorway_link', 'trunk_link', 'primary_link',
+              'secondary_link', 'tertiary_link', 'busway', 'bus_guideway'
+          ) OR (
+              highway = 'construction' AND
+              construction IN (
+                  'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'motorway_link', 'trunk_link',
+                  'primary_link', 'secondary_link', 'tertiary_link', 'busway', 'bus_guideway'
+              )
+          )
+      )
 -- mapping.yaml pre-filter: motorway/trunk/primary/secondary/tertiary, with _link variants, construction, ST_IsValid()
-GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer
+GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street
 ;
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z11_geometry_idx
     ON osm_transportation_merge_linestring_gen_z11 USING gist (geometry);
@@ -162,11 +187,20 @@ BEGIN
         sac_scale,
         access,
         toll,
-        layer
+        layer,
+        cycleway,
+        cycleway_both,
+        cycleway_left,
+        cycleway_right,
+        cycleway_street
     FROM osm_transportation_merge_linestring_gen_z11
     WHERE (update_id IS NULL OR id = update_id)
-        AND highway NOT IN ('tertiary', 'tertiary_link', 'busway', 'bus_guideway')
-        AND construction NOT IN ('tertiary', 'tertiary_link', 'busway', 'bus_guideway')
+        AND (
+            network in ('icn', 'ncn', 'rcn') OR (
+                highway NOT IN ('tertiary', 'tertiary_link', 'busway', 'bus_guideway')
+                AND construction NOT IN ('tertiary', 'tertiary_link', 'busway', 'bus_guideway')
+            )
+        )
     ;
 
     DELETE FROM osm_transportation_merge_linestring_gen_z9
@@ -192,7 +226,12 @@ BEGIN
         sac_scale,
         access,
         toll,
-        layer
+        layer,
+        cycleway,
+        cycleway_both,
+        cycleway_left,
+        cycleway_right,
+        cycleway_street
     FROM osm_transportation_merge_linestring_gen_z10
     WHERE (update_id IS NULL OR id = update_id)
     ;
@@ -239,7 +278,8 @@ SELECT ST_Simplify(ST_LineMerge(ST_Collect(geometry)), ZRes(10)) AS geometry,
        expressway,
        min(z_order) as z_order
 FROM osm_transportation_merge_linestring_gen_z9
-WHERE (highway IN ('motorway', 'trunk', 'primary') OR
+WHERE (network in ('icn', 'ncn', 'rcn') OR
+       highway IN ('motorway', 'trunk', 'primary') OR
        construction IN ('motorway', 'trunk', 'primary'))
        AND ST_IsValid(geometry)
        AND access IS NULL
@@ -284,7 +324,7 @@ BEGIN
         -- Current view: motorway/trunk/primary
     WHERE
         (update_id IS NULL OR id = update_id) AND
-        ST_Length(geometry) > 50;
+        (network IN ('icn', 'ncn') OR ST_Length(geometry) > 50);
 
     DELETE FROM osm_transportation_merge_linestring_gen_z6
     WHERE update_id IS NULL OR id = update_id;
@@ -403,27 +443,32 @@ CREATE TABLE IF NOT EXISTS transportation.changes_z11
     sac_scale character varying,
     access character varying,
     toll boolean,
-    layer integer
+    layer integer,
+    cycleway text,
+    cycleway_both text,
+    cycleway_left text,
+    cycleway_right text,
+    cycleway_street text
 );
 
 CREATE OR REPLACE FUNCTION transportation.store_z11() RETURNS trigger AS
 $$
 BEGIN
     IF (tg_op = 'DELETE' OR tg_op = 'UPDATE') THEN
-        INSERT INTO transportation.changes_z11(is_old, geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer)
+        INSERT INTO transportation.changes_z11(is_old, geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street)
         VALUES (true, old.geometry, old.osm_id, old.highway, old.network, old.construction, old.is_bridge, old.is_tunnel, old.is_ford, old.expressway, old.z_order, old.bicycle, old.foot, old.horse, old.mtb_scale, old.sac_scale,
             CASE
                 WHEN old.access IN ('private', 'no') THEN 'no'
                 ELSE NULL::text END,
-            old.toll, old.layer);
+            old.toll, old.layer, old.cycleway, old.cycleway_both, old.cycleway_left, old.cycleway_right, old.cycleway_street);
     END IF;
     IF (tg_op = 'UPDATE' OR tg_op = 'INSERT') THEN
-        INSERT INTO transportation.changes_z11(is_old, geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer)
+        INSERT INTO transportation.changes_z11(is_old, geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street)
         VALUES (false, new.geometry, new.osm_id, new.highway, new.network, new.construction, new.is_bridge, new.is_tunnel, new.is_ford, new.expressway, new.z_order, new.bicycle, new.foot, new.horse, new.mtb_scale, new.sac_scale,
             CASE
                 WHEN new.access IN ('private', 'no') THEN 'no'
                 ELSE NULL::text END,
-            new.toll, new.layer);
+            new.toll, new.layer, new.cycleway, new.cycleway_both, new.cycleway_left, new.cycleway_right, new.cycleway_street);
     END IF;
     RETURN NULL;
 END;
@@ -490,7 +535,12 @@ BEGIN
         h.sac_scale,
         h.access,
         h.toll,
-        h.layer
+        h.layer,
+        h.cycleway,
+        h.cycleway_both,
+        h.cycleway_left,
+        h.cycleway_right,
+        h.cycleway_street
     FROM
         changes_compact AS c
         JOIN osm_transportation_merge_linestring_gen_z11 AS m ON
@@ -510,6 +560,11 @@ BEGIN
              AND m.access IS NOT DISTINCT FROM c.access
              AND m.toll IS NOT DISTINCT FROM c.toll
              AND m.layer IS NOT DISTINCT FROM c.layer
+             AND m.cycleway IS NOT DISTINCT FROM c.cycleway
+             AND m.cycleway_both IS NOT DISTINCT FROM c.cycleway_both
+             AND m.cycleway_left IS NOT DISTINCT FROM c.cycleway_left
+             AND m.cycleway_right IS NOT DISTINCT FROM c.cycleway_right
+             AND m.cycleway_street IS NOT DISTINCT FROM c.cycleway_street
         JOIN osm_highway_linestring_gen_z11 AS h ON
              h.geometry && c.geometry
              AND h.osm_id NOT IN (SELECT osm_id FROM changes_compact)
@@ -531,6 +586,11 @@ BEGIN
                 ELSE NULL::text END IS NOT DISTINCT FROM m.access
              AND h.toll IS NOT DISTINCT FROM m.toll
              AND h.layer IS NOT DISTINCT FROM m.layer
+             AND h.cycleway IS NOT DISTINCT FROM m.cycleway
+             AND h.cycleway_both IS NOT DISTINCT FROM m.cycleway_both
+             AND h.cycleway_left IS NOT DISTINCT FROM m.cycleway_left
+             AND h.cycleway_right IS NOT DISTINCT FROM m.cycleway_right
+             AND h.cycleway_street IS NOT DISTINCT FROM m.cycleway_street
     ORDER BY
         h.osm_id
     ;
@@ -555,9 +615,14 @@ BEGIN
         AND m.access IS NOT DISTINCT FROM c.access
         AND m.toll IS NOT DISTINCT FROM c.toll
         AND m.layer IS NOT DISTINCT FROM c.layer
+        AND m.cycleway IS NOT DISTINCT FROM c.cycleway
+        AND m.cycleway_both IS NOT DISTINCT FROM c.cycleway_both
+        AND m.cycleway_left IS NOT DISTINCT FROM c.cycleway_left
+        AND m.cycleway_right IS NOT DISTINCT FROM c.cycleway_right
+        AND m.cycleway_street IS NOT DISTINCT FROM c.cycleway_street
     ;
 
-    INSERT INTO osm_transportation_merge_linestring_gen_z11(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer)
+    INSERT INTO osm_transportation_merge_linestring_gen_z11(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street)
     SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
         NULL::bigint AS osm_id,
         highway,
@@ -577,7 +642,12 @@ BEGIN
             WHEN access IN ('private', 'no') THEN 'no'
             ELSE NULL::text END AS access,
         toll,
-        layer
+        layer,
+        cycleway,
+        cycleway_both,
+        cycleway_left,
+        cycleway_right,
+        cycleway_street
     FROM ((
         SELECT * FROM osm_highway_linestring_original
     ) UNION ALL (
@@ -589,7 +659,7 @@ BEGIN
         WHERE
             NOT is_old
     )) AS t
-    GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer
+    GROUP BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street
     ;
 
     DROP TABLE osm_highway_linestring_original;

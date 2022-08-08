@@ -1,4 +1,5 @@
 DROP TRIGGER IF EXISTS trigger_store_transportation_route_member ON osm_route_member;
+DROP TRIGGER IF EXISTS trigger_store_transportation_superroute_member ON osm_superroute_member;
 DROP TRIGGER IF EXISTS trigger_store_transportation_highway_linestring ON osm_highway_linestring;
 DROP TRIGGER IF EXISTS trigger_flag_transportation_name ON transportation_name.network_changes;
 DROP TRIGGER IF EXISTS trigger_refresh_network ON transportation_name.updates_network;
@@ -14,6 +15,7 @@ $$
     EXCEPTION
         WHEN undefined_object THEN
             CREATE TYPE route_network_type AS enum (
+                'icn', 'ncn', 'rcn', 'lcn',
                 'us-interstate', 'us-highway', 'us-state',
                 'ca-transcanada',
                 'gb-motorway', 'gb-trunk'

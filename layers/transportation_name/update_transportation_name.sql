@@ -18,6 +18,7 @@ SELECT (ST_Dump(geometry)).geom AS geometry,
        layer,
        indoor,
        network_type AS network,
+       network_name,
        route_1, route_2, route_3, route_4, route_5, route_6,
        z_order,
        route_rank
@@ -35,12 +36,15 @@ FROM (
                 layer,
                 indoor,
                 network_type,
+                network_name,
                 route_1, route_2, route_3, route_4, route_5, route_6,
                 min(z_order) AS z_order,
                 min(route_rank) AS route_rank
          FROM osm_transportation_name_network
-         WHERE tags->'name' <> '' OR ref <> ''
-         GROUP BY tags, ref, highway, subclass, "level", layer, sac_scale, indoor, network_type,
+         WHERE tags->'name' <> '' OR ref <> '' OR (
+                 network_type = ANY('{icn,ncn,rcn,lcn}') AND NULLIF(network_name, '') IS NOT NULL
+               )
+         GROUP BY tags, ref, highway, subclass, "level", layer, sac_scale, indoor, network_type, network_name,
                   route_1, route_2, route_3, route_4, route_5, route_6
          UNION ALL
 
@@ -55,6 +59,7 @@ FROM (
                 layer,
                 NULL AS indoor,
                 NULL AS network_type,
+                NULL AS network_name,
                 NULL AS route_1,
                 NULL AS route_2,
                 NULL AS route_3,
@@ -79,6 +84,7 @@ FROM (
                 layer,
                 NULL AS indoor,
                 NULL AS network_type,
+                NULL AS network_name,
                 NULL AS route_1,
                 NULL AS route_2,
                 NULL AS route_3,
@@ -218,6 +224,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE TABLE IF NOT EXISTS transportation_name.superroute_changes
+(
+    osm_id bigint,
+    UNIQUE (osm_id)
+);
+
+
+CREATE OR REPLACE FUNCTION transportation_name.superroute_member_store() RETURNS trigger AS
+$$
+BEGIN
+
+    INSERT INTO transportation_name.superroute_changes(osm_id) VALUES (
+        (CASE WHEN tg_op IN ('DELETE', 'UPDATE') THEN old.osm_id ELSE new.osm_id END)
+    ) ON CONFLICT DO NOTHING;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE OR REPLACE FUNCTION transportation_name.highway_linestring_store() RETURNS trigger AS
 $$
 BEGIN
@@ -288,6 +313,7 @@ BEGIN
         layer,
         indoor,
         network_type,
+        network_name,
         route_1, route_2, route_3, route_4, route_5, route_6,
         z_order,
         route_rank
@@ -296,6 +322,7 @@ BEGIN
             hl.osm_id,
             transportation_name_tags(hl.geometry, hl.tags, hl.name, hl.name_en, hl.name_de) AS tags,
             rm1.network_type,
+            NULLIF(rm1.name, '') as network_name,
             CASE
                 WHEN rm1.network_type IS NOT NULL AND rm1.ref::text <> ''
                     THEN rm1.ref::text
@@ -314,8 +341,8 @@ BEGIN
 	    NULLIF(rm4.network, '') || '=' || COALESCE(rm4.ref, '') AS route_4,
 	    NULLIF(rm5.network, '') || '=' || COALESCE(rm5.ref, '') AS route_5,
 	    NULLIF(rm6.network, '') || '=' || COALESCE(rm6.ref, '') AS route_6,
-            hl.z_order,
-            LEAST(rm1.rank, rm2.rank, rm3.rank, rm4.rank, rm5.rank, rm6.rank) AS route_rank
+        hl.z_order,
+        LEAST(rm1.rank, rm2.rank, rm3.rank, rm4.rank, rm5.rank, rm6.rank) AS route_rank
         FROM osm_highway_linestring hl
                 JOIN transportation_name.network_changes AS c ON
             hl.osm_id = c.osm_id
@@ -346,6 +373,12 @@ CREATE TRIGGER trigger_store_transportation_route_member
     ON osm_route_member
     FOR EACH ROW
 EXECUTE PROCEDURE transportation_name.route_member_store();
+
+CREATE TRIGGER trigger_store_transportation_superroute_member
+    AFTER INSERT OR UPDATE OR DELETE
+    ON osm_superroute_member
+    FOR EACH ROW
+EXECUTE PROCEDURE transportation_name.superroute_member_store();
 
 CREATE TRIGGER trigger_store_transportation_highway_linestring
     AFTER INSERT OR UPDATE OR DELETE
@@ -383,6 +416,7 @@ CREATE TABLE IF NOT EXISTS transportation_name.name_changes
     layer integer,
     indoor boolean,
     network_type route_network_type,
+    network_name character varying,
     route_1 character varying,
     route_2 character varying,
     route_3 character varying,
@@ -398,18 +432,18 @@ BEGIN
     THEN
         INSERT INTO transportation_name.name_changes(is_old, osm_id, tags, ref, highway, subclass,
                                                      brunnel, sac_scale, level, layer, indoor, network_type,
-                                                     route_1, route_2, route_3, route_4, route_5, route_6)
+                                                     network_name, route_1, route_2, route_3, route_4, route_5, route_6)
         VALUES (TRUE, old.osm_id, old.tags, old.ref, old.highway, old.subclass,
-                old.brunnel, old.sac_scale, old.level, old.layer, old.indoor, old.network_type,
+                old.brunnel, old.sac_scale, old.level, old.layer, old.indoor, old.network_type, old.network_name,
                 old.route_1, old.route_2, old.route_3, old.route_4, old.route_5, old.route_6);
     END IF;
     IF (tg_op IN ('UPDATE', 'INSERT'))
     THEN
         INSERT INTO transportation_name.name_changes(is_old, osm_id, tags, ref, highway, subclass,
                                                      brunnel, sac_scale, level, layer, indoor, network_type,
-                                                     route_1, route_2, route_3, route_4, route_5, route_6)
+                                                     network_name, route_1, route_2, route_3, route_4, route_5, route_6)
         VALUES (FALSE, new.osm_id, new.tags, new.ref, new.highway, new.subclass,
-                new.brunnel, new.sac_scale, new.level, new.layer, new.indoor, new.network_type,
+                new.brunnel, new.sac_scale, new.level, new.layer, new.indoor, new.network_type, new.network_name,
                 new.route_1, new.route_2, new.route_3, new.route_4, new.route_5, new.route_6);
     END IF;
     RETURN NULL;
@@ -442,7 +476,7 @@ BEGIN
     -- Compact the change history to keep only the first and last version, and then uniq version of row
     CREATE TEMP TABLE name_changes_compact AS
     SELECT DISTINCT ON (tags, ref, highway, subclass, brunnel, sac_scale, level, layer, indoor, network_type,
-                        route_1, route_2, route_3, route_4, route_5, route_6)
+                        network_name, route_1, route_2, route_3, route_4, route_5, route_6)
         tags,
         ref,
         highway,
@@ -453,6 +487,7 @@ BEGIN
         layer,
         indoor,
         network_type,
+        network_name,
         route_1, route_2, route_3, route_4, route_5, route_6,
         coalesce(tags->'name', ref) AS name_ref
     FROM ((
@@ -484,6 +519,7 @@ BEGIN
       AND n.layer IS NOT DISTINCT FROM c.layer
       AND n.indoor IS NOT DISTINCT FROM c.indoor
       AND n.network IS NOT DISTINCT FROM c.network_type
+      AND n.network_name IS NOT DISTINCT FROM c.network_name
       AND n.route_1 IS NOT DISTINCT FROM c.route_1
       AND n.route_2 IS NOT DISTINCT FROM c.route_2
       AND n.route_3 IS NOT DISTINCT FROM c.route_3
@@ -503,8 +539,10 @@ BEGIN
            layer,
            indoor,
            network_type AS network,
+           network_name,
            route_1, route_2, route_3, route_4, route_5, route_6,
-           z_order
+           z_order,
+           route_rank
     FROM (
         SELECT ST_LineMerge(ST_Collect(n.geometry)) AS geometry,
             n.tags,
@@ -517,8 +555,10 @@ BEGIN
             n.layer,
             n.indoor,
             n.network_type,
+            n.network_name,
             n.route_1, n.route_2, n.route_3, n.route_4, n.route_5, n.route_6,
-            min(n.z_order) AS z_order
+            min(n.z_order) AS z_order,
+            min(n.route_rank) AS route_rank
         FROM osm_transportation_name_network AS n
             JOIN name_changes_compact AS c ON
                  coalesce(n.ref, '') = coalesce(c.ref, '')
@@ -531,14 +571,15 @@ BEGIN
              AND n.layer IS NOT DISTINCT FROM c.layer
              AND n.indoor IS NOT DISTINCT FROM c.indoor
              AND n.network_type IS NOT DISTINCT FROM c.network_type
+             AND n.network_name IS NOT DISTINCT FROM c.network_name
              AND n.route_1 IS NOT DISTINCT FROM c.route_1
              AND n.route_2 IS NOT DISTINCT FROM c.route_2
              AND n.route_3 IS NOT DISTINCT FROM c.route_3
              AND n.route_4 IS NOT DISTINCT FROM c.route_4
              AND n.route_5 IS NOT DISTINCT FROM c.route_5
              AND n.route_6 IS NOT DISTINCT FROM c.route_6
-        GROUP BY n.tags, n.ref, n.highway, n.subclass, n.brunnel, n.sac_scale, n.level, n.layer, n.indoor, n.network_type,
-                 n.route_1, n.route_2, n.route_3, n.route_4, n.route_5, n.route_6
+        GROUP BY n.tags, n.ref, n.highway, n.subclass, n.brunnel, n.sac_scale, n.level, n.layer, n.indoor,
+                 n.network_type, n.network_name, n.route_1, n.route_2, n.route_3, n.route_4, n.route_5, n.route_6
     ) AS highway_union;
 
     -- REFRESH osm_transportation_name_linestring_gen1
