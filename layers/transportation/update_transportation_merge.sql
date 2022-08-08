@@ -105,10 +105,18 @@ CREATE TABLE IF NOT EXISTS osm_transportation_merge_linestring_gen_z11(
     cycleway_both text,
     cycleway_left text,
     cycleway_right text,
-    cycleway_street text
+    cycleway_street text,
+    bm_weight int,
+    bm_weight_road_bike int,
+    bm_weight_mountain_bike int,
+    bm_weight_a_to_b int,
+    bm_weight_tracked int,
+    bm_weight_road_bike_tracked int,
+    bm_weight_mountain_bike_tracked int,
+    bm_weight_a_to_b_tracked int
 );
 
-INSERT INTO osm_transportation_merge_linestring_gen_z11(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street)
+INSERT INTO osm_transportation_merge_linestring_gen_z11(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street, bm_weight, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_tracked, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked)
 SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
        NULL::bigint AS osm_id,
        highway,
@@ -133,7 +141,15 @@ SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
        cycleway_both,
        cycleway_left,
        cycleway_right,
-       cycleway_street
+       cycleway_street,
+       ROUND(SUM(NULLIF(bm_weight, '')::NUMERIC))::int AS bm_weight,
+       ROUND(SUM(NULLIF(bm_weight_road_bike, '')::NUMERIC))::int AS bm_weight_road_bike,
+       ROUND(SUM(NULLIF(bm_weight_mountain_bike, '')::NUMERIC))::int AS bm_weight_mountain_bike,
+       ROUND(SUM(NULLIF(bm_weight_a_to_b, '')::NUMERIC))::int AS bm_weight_a_to_b,
+       ROUND(SUM(NULLIF(bm_weight_tracked, '')::NUMERIC))::int AS bm_weight_tracked,
+       ROUND(SUM(NULLIF(bm_weight_road_bike_tracked, '')::NUMERIC))::int AS bm_weight_road_bike_tracked,
+       ROUND(SUM(NULLIF(bm_weight_mountain_bike_tracked, '')::NUMERIC))::int AS bm_weight_mountain_bike_tracked,
+       ROUND(SUM(NULLIF(bm_weight_a_to_b_tracked, '')::NUMERIC))::int AS bm_weight_a_to_b_tracked
 FROM osm_highway_linestring_gen_z11
 WHERE network in ('icn', 'ncn', 'rcn', 'lcn') OR
       (
@@ -193,7 +209,15 @@ BEGIN
         cycleway_both,
         cycleway_left,
         cycleway_right,
-        cycleway_street
+        cycleway_street,
+        bm_weight,
+        bm_weight_road_bike,
+        bm_weight_mountain_bike,
+        bm_weight_a_to_b,
+        bm_weight_tracked,
+        bm_weight_road_bike_tracked,
+        bm_weight_mountain_bike_tracked,
+        bm_weight_a_to_b_tracked
     FROM osm_transportation_merge_linestring_gen_z11
     WHERE (update_id IS NULL OR id = update_id)
         AND (
@@ -232,7 +256,15 @@ BEGIN
         cycleway_both,
         cycleway_left,
         cycleway_right,
-        cycleway_street
+        cycleway_street,
+        bm_weight,
+        bm_weight_road_bike,
+        bm_weight_mountain_bike,
+        bm_weight_a_to_b,
+        bm_weight_tracked,
+        bm_weight_road_bike_tracked,
+        bm_weight_mountain_bike_tracked,
+        bm_weight_a_to_b_tracked
     FROM osm_transportation_merge_linestring_gen_z10
     WHERE (update_id IS NULL OR id = update_id)
     ;
@@ -264,10 +296,18 @@ CREATE TABLE IF NOT EXISTS osm_transportation_merge_linestring_gen_z8(
     is_tunnel boolean,
     is_ford boolean,
     expressway boolean,
-    z_order integer
+    z_order integer,
+    bm_weight int,
+    bm_weight_road_bike int,
+    bm_weight_mountain_bike int,
+    bm_weight_a_to_b int,
+    bm_weight_tracked int,
+    bm_weight_road_bike_tracked int,
+    bm_weight_mountain_bike_tracked int,
+    bm_weight_a_to_b_tracked int
 );
 
-INSERT INTO osm_transportation_merge_linestring_gen_z8(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order)
+INSERT INTO osm_transportation_merge_linestring_gen_z8(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bm_weight, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_tracked, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked)
 SELECT ST_Simplify(ST_LineMerge(ST_Collect(geometry)), ZRes(10)) AS geometry,
        NULL::bigint AS osm_id,
        highway,
@@ -277,7 +317,15 @@ SELECT ST_Simplify(ST_LineMerge(ST_Collect(geometry)), ZRes(10)) AS geometry,
        is_tunnel,
        is_ford,
        expressway,
-       min(z_order) as z_order
+       min(z_order) as z_order,
+       SUM(bm_weight)::int AS bm_weight,
+       SUM(bm_weight_road_bike)::int  AS bm_weight_road_bike,
+       SUM(bm_weight_mountain_bike)::int  AS bm_weight_mountain_bike,
+       SUM(bm_weight_a_to_b)::int  AS bm_weight_a_to_b,
+       SUM(bm_weight_tracked)::int  AS bm_weight_tracked,
+       SUM(bm_weight_road_bike_tracked)::int  AS bm_weight_road_bike_tracked,
+       SUM(bm_weight_mountain_bike_tracked)::int  AS bm_weight_mountain_bike_tracked,
+       SUM(bm_weight_a_to_b_tracked)::int  AS bm_weight_a_to_b_tracked
 FROM osm_transportation_merge_linestring_gen_z9
 WHERE (network in ('icn', 'ncn', 'rcn') OR
        highway IN ('motorway', 'trunk', 'primary') OR
@@ -320,7 +368,15 @@ BEGIN
         is_tunnel,
         is_ford,
         expressway,
-        z_order
+        z_order,
+        bm_weight,
+        bm_weight_road_bike,
+        bm_weight_mountain_bike,
+        bm_weight_a_to_b,
+        bm_weight_tracked,
+        bm_weight_road_bike_tracked,
+        bm_weight_mountain_bike_tracked,
+        bm_weight_a_to_b_tracked
     FROM osm_transportation_merge_linestring_gen_z8
         -- Current view: motorway/trunk/primary
     WHERE
@@ -449,27 +505,35 @@ CREATE TABLE IF NOT EXISTS transportation.changes_z11
     cycleway_both text,
     cycleway_left text,
     cycleway_right text,
-    cycleway_street text
+    cycleway_street text,
+    bm_weight int,
+    bm_weight_road_bike int,
+    bm_weight_mountain_bike int,
+    bm_weight_a_to_b int,
+    bm_weight_tracked int,
+    bm_weight_road_bike_tracked int,
+    bm_weight_mountain_bike_tracked int,
+    bm_weight_a_to_b_tracked int
 );
 
 CREATE OR REPLACE FUNCTION transportation.store_z11() RETURNS trigger AS
 $$
 BEGIN
     IF (tg_op = 'DELETE' OR tg_op = 'UPDATE') THEN
-        INSERT INTO transportation.changes_z11(is_old, geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street)
+        INSERT INTO transportation.changes_z11(is_old, geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street, bm_weight, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_tracked, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked)
         VALUES (true, old.geometry, old.osm_id, old.highway, old.network, old.construction, old.is_bridge, old.is_tunnel, old.is_ford, old.expressway, old.z_order, old.bicycle, old.foot, old.horse, old.mtb_scale, old.sac_scale,
             CASE
                 WHEN old.access IN ('private', 'no') THEN 'no'
                 ELSE NULL::text END,
-            old.toll, old.layer, old.cycleway, old.cycleway_both, old.cycleway_left, old.cycleway_right, old.cycleway_street);
+            old.toll, old.layer, old.cycleway, old.cycleway_both, old.cycleway_left, old.cycleway_right, old.cycleway_street, old.bm_weight, old.bm_weight_road_bike, old.bm_weight_mountain_bike, old.bm_weight_a_to_b, old.bm_weight_tracked, old.bm_weight_road_bike_tracked, old.bm_weight_mountain_bike_tracked, old.bm_weight_a_to_b_tracked);
     END IF;
     IF (tg_op = 'UPDATE' OR tg_op = 'INSERT') THEN
-        INSERT INTO transportation.changes_z11(is_old, geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street)
+        INSERT INTO transportation.changes_z11(is_old, geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street, bm_weight, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_tracked, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked)
         VALUES (false, new.geometry, new.osm_id, new.highway, new.network, new.construction, new.is_bridge, new.is_tunnel, new.is_ford, new.expressway, new.z_order, new.bicycle, new.foot, new.horse, new.mtb_scale, new.sac_scale,
             CASE
                 WHEN new.access IN ('private', 'no') THEN 'no'
                 ELSE NULL::text END,
-            new.toll, new.layer, new.cycleway, new.cycleway_both, new.cycleway_left, new.cycleway_right, new.cycleway_street);
+            new.toll, new.layer, new.cycleway, new.cycleway_both, new.cycleway_left, new.cycleway_right, new.cycleway_street, new.bm_weight, new.bm_weight_road_bike, new.bm_weight_mountain_bike, new.bm_weight_a_to_b, new.bm_weight_tracked, new.bm_weight_road_bike_tracked, new.bm_weight_mountain_bike_tracked, new.bm_weight_a_to_b_tracked);
     END IF;
     RETURN NULL;
 END;
@@ -541,7 +605,15 @@ BEGIN
         h.cycleway_both,
         h.cycleway_left,
         h.cycleway_right,
-        h.cycleway_street
+        h.cycleway_street,
+        h.bm_weight,
+        h.bm_weight_road_bike,
+        h.bm_weight_mountain_bike,
+        h.bm_weight_a_to_b,
+        h.bm_weight_tracked,
+        h.bm_weight_road_bike_tracked,
+        h.bm_weight_mountain_bike_tracked,
+        h.bm_weight_a_to_b_tracked
     FROM
         changes_compact AS c
         JOIN osm_transportation_merge_linestring_gen_z11 AS m ON
@@ -566,6 +638,14 @@ BEGIN
              AND m.cycleway_left IS NOT DISTINCT FROM c.cycleway_left
              AND m.cycleway_right IS NOT DISTINCT FROM c.cycleway_right
              AND m.cycleway_street IS NOT DISTINCT FROM c.cycleway_street
+             AND m.bm_weight IS NOT DISTINCT FROM c.bm_weight
+             AND m.bm_weight_road_bike IS NOT DISTINCT FROM c.bm_weight_road_bike
+             AND m.bm_weight_mountain_bike IS NOT DISTINCT FROM c.bm_weight_mountain_bike
+             AND m.bm_weight_a_to_b IS NOT DISTINCT FROM c.bm_weight_a_to_b
+             AND m.bm_weight_tracked IS NOT DISTINCT FROM c.bm_weight_tracked
+             AND m.bm_weight_road_bike_tracked IS NOT DISTINCT FROM c.bm_weight_road_bike_tracked
+             AND m.bm_weight_mountain_bike_tracked IS NOT DISTINCT FROM c.bm_weight_mountain_bike_tracked
+             AND m.bm_weight_a_to_b_tracked IS NOT DISTINCT FROM c.bm_weight_a_to_b_tracked
         JOIN osm_highway_linestring_gen_z11 AS h ON
              h.geometry && c.geometry
              AND h.osm_id NOT IN (SELECT osm_id FROM changes_compact)
@@ -592,6 +672,14 @@ BEGIN
              AND h.cycleway_left IS NOT DISTINCT FROM m.cycleway_left
              AND h.cycleway_right IS NOT DISTINCT FROM m.cycleway_right
              AND h.cycleway_street IS NOT DISTINCT FROM m.cycleway_street
+             AND h.bm_weight IS NOT DISTINCT FROM m.bm_weight
+             AND h.bm_weight_road_bike IS NOT DISTINCT FROM m.bm_weight_road_bike
+             AND h.bm_weight_mountain_bike IS NOT DISTINCT FROM m.bm_weight_mountain_bike
+             AND h.bm_weight_a_to_b IS NOT DISTINCT FROM m.bm_weight_a_to_b
+             AND h.bm_weight_tracked IS NOT DISTINCT FROM m.bm_weight_tracked
+             AND h.bm_weight_road_bike_tracked IS NOT DISTINCT FROM m.bm_weight_road_bike_tracked
+             AND h.bm_weight_mountain_bike_tracked IS NOT DISTINCT FROM m.bm_weight_mountain_bike_tracked
+             AND h.bm_weight_a_to_b_tracked IS NOT DISTINCT FROM m.bm_weight_a_to_b_tracked
     ORDER BY
         h.osm_id
     ;
@@ -621,9 +709,17 @@ BEGIN
         AND m.cycleway_left IS NOT DISTINCT FROM c.cycleway_left
         AND m.cycleway_right IS NOT DISTINCT FROM c.cycleway_right
         AND m.cycleway_street IS NOT DISTINCT FROM c.cycleway_street
+        AND m.bm_weight IS NOT DISTINCT FROM c.bm_weight
+        AND m.bm_weight_road_bike IS NOT DISTINCT FROM c.bm_weight_road_bike
+        AND m.bm_weight_mountain_bike IS NOT DISTINCT FROM c.bm_weight_mountain_bike
+        AND m.bm_weight_a_to_b IS NOT DISTINCT FROM c.bm_weight_a_to_b
+        AND m.bm_weight_tracked IS NOT DISTINCT FROM c.bm_weight_tracked
+        AND m.bm_weight_road_bike_tracked IS NOT DISTINCT FROM c.bm_weight_road_bike_tracked
+        AND m.bm_weight_mountain_bike_tracked IS NOT DISTINCT FROM c.bm_weight_mountain_bike_tracked
+        AND m.bm_weight_a_to_b_tracked IS NOT DISTINCT FROM c.bm_weight_a_to_b_tracked
     ;
 
-    INSERT INTO osm_transportation_merge_linestring_gen_z11(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street)
+    INSERT INTO osm_transportation_merge_linestring_gen_z11(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bicycle, foot, horse, mtb_scale, sac_scale, access, toll, layer, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street, bm_weight, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_tracked, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked)
     SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
         NULL::bigint AS osm_id,
         highway,
@@ -648,7 +744,15 @@ BEGIN
         cycleway_both,
         cycleway_left,
         cycleway_right,
-        cycleway_street
+        cycleway_street,
+        ROUND(SUM(NULLIF(bm_weight, '')::NUMERIC))::int AS bm_weight,
+        ROUND(SUM(NULLIF(bm_weight_road_bike, '')::NUMERIC))::int AS bm_weight_road_bike,
+        ROUND(SUM(NULLIF(bm_weight_mountain_bike, '')::NUMERIC))::int AS bm_weight_mountain_bike,
+        ROUND(SUM(NULLIF(bm_weight_a_to_b, '')::NUMERIC))::int AS bm_weight_a_to_b,
+        ROUND(SUM(NULLIF(bm_weight_tracked, '')::NUMERIC))::int AS bm_weight_tracked,
+        ROUND(SUM(NULLIF(bm_weight_road_bike_tracked, '')::NUMERIC))::int AS bm_weight_road_bike_tracked,
+        ROUND(SUM(NULLIF(bm_weight_mountain_bike_tracked, '')::NUMERIC))::int AS bm_weight_mountain_bike_tracked,
+        ROUND(SUM(NULLIF(bm_weight_a_to_b_tracked, '')::NUMERIC))::int AS bm_weight_a_to_b_tracked
     FROM ((
         SELECT * FROM osm_highway_linestring_original
     ) UNION ALL (
@@ -741,19 +845,27 @@ CREATE TABLE IF NOT EXISTS transportation.changes_z9
     is_tunnel boolean,
     is_ford boolean,
     expressway boolean,
-    z_order integer
+    z_order integer,
+    bm_weight int,
+    bm_weight_road_bike int,
+    bm_weight_mountain_bike int,
+    bm_weight_a_to_b int,
+    bm_weight_tracked int,
+    bm_weight_road_bike_tracked int,
+    bm_weight_mountain_bike_tracked int,
+    bm_weight_a_to_b_tracked int
 );
 
 CREATE OR REPLACE FUNCTION transportation.store_z9() RETURNS trigger AS
 $$
 BEGIN
     IF (tg_op = 'DELETE' OR tg_op = 'UPDATE') THEN
-        INSERT INTO transportation.changes_z9(is_old, geometry, id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order)
-        VALUES (true, old.geometry, old.id, old.highway, old.network, old.construction, old.is_bridge, old.is_tunnel, old.is_ford, old.expressway, old.z_order);
+        INSERT INTO transportation.changes_z9(is_old, geometry, id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bm_weight, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_tracked, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked)
+        VALUES (true, old.geometry, old.id, old.highway, old.network, old.construction, old.is_bridge, old.is_tunnel, old.is_ford, old.expressway, old.z_order, old.bm_weight, old.bm_weight_road_bike, old.bm_weight_mountain_bike, old.bm_weight_a_to_b, old.bm_weight_tracked, old.bm_weight_road_bike_tracked, old.bm_weight_mountain_bike_tracked, old.bm_weight_a_to_b_tracked);
     END IF;
     IF (tg_op = 'UPDATE' OR tg_op = 'INSERT') THEN
-        INSERT INTO transportation.changes_z9(is_old, geometry, id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order)
-        VALUES (false, new.geometry, new.id, new.highway, new.network, new.construction, new.is_bridge, new.is_tunnel, new.is_ford, new.expressway, new.z_order);
+        INSERT INTO transportation.changes_z9(is_old, geometry, id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bm_weight, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_tracked, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked)
+        VALUES (false, new.geometry, new.id, new.highway, new.network, new.construction, new.is_bridge, new.is_tunnel, new.is_ford, new.expressway, new.z_order, new.bm_weight, new.bm_weight_road_bike, new.bm_weight_mountain_bike, new.bm_weight_a_to_b, new.bm_weight_tracked, new.bm_weight_road_bike_tracked, new.bm_weight_mountain_bike_tracked, new.bm_weight_a_to_b_tracked);
     END IF;
     RETURN NULL;
 END;
@@ -811,7 +923,15 @@ BEGIN
         h.is_tunnel,
         h.is_ford,
         h.expressway,
-        h.z_order
+        h.z_order,
+        h.bm_weight,
+        h.bm_weight_road_bike,
+        h.bm_weight_mountain_bike,
+        h.bm_weight_a_to_b,
+        h.bm_weight_tracked,
+        h.bm_weight_road_bike_tracked,
+        h.bm_weight_mountain_bike_tracked,
+        h.bm_weight_a_to_b_tracked
     FROM
         changes_compact AS c
         JOIN osm_transportation_merge_linestring_gen_z8 AS m ON
@@ -823,6 +943,14 @@ BEGIN
              AND m.is_tunnel IS NOT DISTINCT FROM c.is_tunnel
              AND m.is_ford IS NOT DISTINCT FROM c.is_ford
              AND m.expressway IS NOT DISTINCT FROM c.expressway
+             AND m.bm_weight IS NOT DISTINCT FROM c.bm_weight
+             AND m.bm_weight_road_bike IS NOT DISTINCT FROM c.bm_weight_road_bike
+             AND m.bm_weight_mountain_bike IS NOT DISTINCT FROM c.bm_weight_mountain_bike
+             AND m.bm_weight_a_to_b IS NOT DISTINCT FROM c.bm_weight_a_to_b
+             AND m.bm_weight_tracked IS NOT DISTINCT FROM c.bm_weight_tracked
+             AND m.bm_weight_road_bike_tracked IS NOT DISTINCT FROM c.bm_weight_road_bike_tracked
+             AND m.bm_weight_mountain_bike_tracked IS NOT DISTINCT FROM c.bm_weight_mountain_bike_tracked
+             AND m.bm_weight_a_to_b_tracked IS NOT DISTINCT FROM c.bm_weight_a_to_b_tracked
         JOIN osm_transportation_merge_linestring_gen_z9 AS h ON
              h.geometry && c.geometry
              AND h.id NOT IN (SELECT id FROM changes_compact)
@@ -834,6 +962,14 @@ BEGIN
              AND h.is_tunnel IS NOT DISTINCT FROM m.is_tunnel
              AND h.is_ford IS NOT DISTINCT FROM m.is_ford
              AND h.expressway IS NOT DISTINCT FROM m.expressway
+             AND h.bm_weight IS NOT DISTINCT FROM m.bm_weight
+             AND h.bm_weight_road_bike IS NOT DISTINCT FROM m.bm_weight_road_bike
+             AND h.bm_weight_mountain_bike IS NOT DISTINCT FROM m.bm_weight_mountain_bike
+             AND h.bm_weight_a_to_b IS NOT DISTINCT FROM m.bm_weight_a_to_b
+             AND h.bm_weight_tracked IS NOT DISTINCT FROM m.bm_weight_tracked
+             AND h.bm_weight_road_bike_tracked IS NOT DISTINCT FROM m.bm_weight_road_bike_tracked
+             AND h.bm_weight_mountain_bike_tracked IS NOT DISTINCT FROM m.bm_weight_mountain_bike_tracked
+             AND h.bm_weight_a_to_b_tracked IS NOT DISTINCT FROM m.bm_weight_a_to_b_tracked
     ORDER BY
         h.id
     ;
@@ -850,9 +986,17 @@ BEGIN
         AND m.is_tunnel IS NOT DISTINCT FROM c.is_tunnel
         AND m.is_ford IS NOT DISTINCT FROM c.is_ford
         AND m.expressway IS NOT DISTINCT FROM c.expressway
+        AND m.bm_weight IS NOT DISTINCT FROM c.bm_weight
+        AND m.bm_weight_road_bike IS NOT DISTINCT FROM c.bm_weight_road_bike
+        AND m.bm_weight_mountain_bike IS NOT DISTINCT FROM c.bm_weight_mountain_bike
+        AND m.bm_weight_a_to_b IS NOT DISTINCT FROM c.bm_weight_a_to_b
+        AND m.bm_weight_tracked IS NOT DISTINCT FROM c.bm_weight_tracked
+        AND m.bm_weight_road_bike_tracked IS NOT DISTINCT FROM c.bm_weight_road_bike_tracked
+        AND m.bm_weight_mountain_bike_tracked IS NOT DISTINCT FROM c.bm_weight_mountain_bike_tracked
+        AND m.bm_weight_a_to_b_tracked IS NOT DISTINCT FROM c.bm_weight_a_to_b_tracked
     ;
 
-    INSERT INTO osm_transportation_merge_linestring_gen_z8(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order)
+    INSERT INTO osm_transportation_merge_linestring_gen_z8(geometry, osm_id, highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, z_order, bm_weight, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_tracked, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked)
     SELECT (ST_Dump(ST_LineMerge(ST_Collect(geometry)))).geom AS geometry,
         NULL::bigint AS osm_id,
         highway,
@@ -862,7 +1006,15 @@ BEGIN
         is_tunnel,
         is_ford,
         expressway,
-        min(z_order) as z_order
+        min(z_order) as z_order,
+        SUM(bm_weight)::int AS bm_weight,
+        SUM(bm_weight_road_bike)::int  AS bm_weight_road_bike,
+        SUM(bm_weight_mountain_bike)::int  AS bm_weight_mountain_bike,
+        SUM(bm_weight_a_to_b)::int  AS bm_weight_a_to_b,
+        SUM(bm_weight_tracked)::int  AS bm_weight_tracked,
+        SUM(bm_weight_road_bike_tracked)::int  AS bm_weight_road_bike_tracked,
+        SUM(bm_weight_mountain_bike_tracked)::int  AS bm_weight_mountain_bike_tracked,
+        SUM(bm_weight_a_to_b_tracked)::int  AS bm_weight_a_to_b_tracked
     FROM ((
         SELECT * FROM osm_highway_linestring_original
     ) UNION ALL (
