@@ -136,6 +136,10 @@ layer:
           with `-1` whether way is a oneway in the opposite direction of the way
           or not a oneway with `0`.
       values: [1, -1]
+    oneway_bicycle:
+      description: |
+          Mark with true whether a way is also a oneway for cyclists
+      values: [ true, false ]
     ramp:
       description: |
           Mark with `1` whether way is a ramp (link or steps)
@@ -183,6 +187,21 @@ layer:
     bicycle:
       description: |
           Original value of the [`bicycle`](http://wiki.openstreetmap.org/wiki/Key:bicycle) tag (highways only).
+    cycleway:
+      description: |
+          Original value of the ['cycleway'] (http://wiki.openstreetmap.org/wiki/Key:cycleway) tag (highways only).
+    cycleway_both:
+      description: |
+        Original value of the [`cycleway:both`](http://wiki.openstreetmap.org/wiki/Key:cycleway:both) tag (highways only).
+    cycleway_left:
+      description: |
+        Original value of the [`cycleway:left`](http://wiki.openstreetmap.org/wiki/Key:cycleway:left) tag (highways only).
+    cycleway_right:
+      description: |
+        Original value of the [`cycleway:right`](http://wiki.openstreetmap.org/wiki/Key:cycleway:right) tag (highways only).
+    cycleway_street:
+      description: |
+        Original value of the [`cyclestreet`](http://wiki.openstreetmap.org/wiki/Key:cyclestreet) tag (highways only).
     foot:
       description: |
           Original value of the [`foot`](http://wiki.openstreetmap.org/wiki/Key:foot) tag (highways only).
@@ -198,10 +217,18 @@ layer:
       values:
       - paved
       - unpaved
+    cycle_network:
+      description: |
+          Shows if the way is part of an official cycling network (https://wiki.openstreetmap.org/wiki/Cycle_routes)
+      values:
+      - icn
+      - ncn
+      - rcn
+      - lcn
   datasource:
     geometry_field: geometry
     srid: 900913
-    query: (SELECT geometry, class, subclass, network, oneway, ramp, brunnel, service, access, toll, expressway, layer, level, indoor, bicycle, foot, horse, mtb_scale, surface FROM layer_transportation(!bbox!, z(!scale_denominator!))) AS t
+    query: (SELECT geometry, class, subclass, network, oneway, oneway_bicycle, ramp, brunnel, service, access, toll, expressway, layer, level, indoor, bicycle, cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street, foot, horse, mtb_scale, surface, cycle_network FROM layer_transportation(!bbox!, z(!scale_denominator!))) AS t
 schema:
   - ./network_type.sql
   - ./class.sql
