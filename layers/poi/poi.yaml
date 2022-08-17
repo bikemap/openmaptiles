@@ -156,6 +156,7 @@ layer:
     address:
       description:
         This is a concatenation of the different address keys available, example addr:housenumber + addr:street
+      
   datasource:
     geometry_field: geometry
     key_field: osm_id
