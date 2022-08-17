@@ -33,42 +33,16 @@ BEGIN
       AND tags != update_tags(tags, geometry);
 
     UPDATE osm_poi_point as points
-    SET address =
-        CASE
-            WHEN addr_full IS NOT NULL AND addr_full != '' THEN addr_full
-            WHEN country.country_code in ('at', 'de', 'nl', 'no', 'ch', 'pl') THEN concat_ws(',',
-                concat_ws(' ' , tags -> 'addr:street', tags -> 'addr:housenumber'),
-                tags -> 'addr:postcode',
-                tags -> 'addr:city'
-            )
-            WHEN country.country_code in ('br') THEN concat_ws(',',
-                concat_ws(' ' , tags -> 'addr:street', tags -> 'addr:housenumber'),
-                tags -> 'addr_district',
-                tags -> 'addr_state',
-                tags -> 'addr_postcode'
-            )
-            WHEN country.country_code in ('ru') THEN concat_ws(',',
-                concat_ws(' ' , tags -> 'addr:street', tags -> 'addr:housenumber'),
-                tags -> 'addr_suburb',
-                tags -> 'addr_district',
-                tags -> 'addr_province',
-                tags -> 'addr_postcode'
-            )
-            ELSE concat_ws(',',
-                concat_ws(' ' , tags -> 'addr:housenumber', tags -> 'addr:street'),
-                tags -> 'addr_city',
-                tags -> 'addr_state',
-                tags -> 'addr_postcode'
-            )
-        END
+    SET country = country.country_code
     FROM public.country_osm_grid as country
-    WHERE ST_Intersects(ST_Transform(points.geometry::geometry, 4326), country.geometry::geometry);
+    WHERE country.country_code in ('at', 'de', 'nl', 'no', 'ch', 'pl', 'br', 'ru')
+      AND ST_Transform(points.geometry::geometry, 4326) && country.geometry::geometry;
 
 END;
 $$ LANGUAGE plpgsql;
 
 ALTER TABLE osm_poi_point
-    ADD COLUMN IF NOT EXISTS address text DEFAULT NULL;
+    ADD COLUMN IF NOT EXISTS country text DEFAULT NULL;
 
 SELECT update_osm_poi_point();
 
@@ -147,6 +121,41 @@ BEGIN
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION bm_address_osm_poi_point(country_code TEXT, addr_full TEXT, addr_housenumber TEXT, addr_street TEXT, addr_city TEXT, addr_suburb TEXT, addr_district TEXT, addr_province TEXT, addr_state TEXT, addr_postcode TEXT)
+    RETURNS text AS
+$$
+SELECT CASE
+        WHEN addr_full IS NOT NULL THEN addr_full
+        WHEN addr_housenumber IS NULL THEN NULL
+        WHEN country_code in ('at', 'de', 'nl', 'no', 'ch', 'pl') THEN concat_ws(',',
+            concat_ws(' ' , addr_street, addr_housenumber),
+            addr_postcode,
+            addr_city
+        )
+        WHEN country_code in ('br') THEN concat_ws(',',
+            concat_ws(addr_street, addr_housenumber),
+            addr_district,
+            addr_state,
+            addr_postcode
+        )
+        WHEN country_code in ('ru') THEN concat_ws(',',
+            concat_ws(' ' , addr_street, addr_housenumber),
+            addr_suburb,
+            addr_district,
+            addr_province,
+            addr_postcode
+        )
+        WHEN country_code not in ('ru','br','at', 'de', 'nl', 'no', 'ch', 'pl') THEN concat_ws(',',
+            concat_ws(' ' , addr_housenumber, addr_street),
+            addr_city,
+            addr_state,
+            addr_postcode
+        )
+        END;
+
+$$ LANGUAGE SQL IMMUTABLE
+                PARALLEL SAFE;
 
 CREATE TRIGGER trigger_flag
     AFTER INSERT OR UPDATE OR DELETE
