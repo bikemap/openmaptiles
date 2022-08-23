@@ -32,10 +32,6 @@ CREATE OR REPLACE FUNCTION layer_transportation(bbox geometry, zoom_level int)
                 mtb_scale  text,
                 surface    text,
                 cycleway text,
-                cycleway_both text,
-                cycleway_left text,
-                cycleway_right text,
-                cycleway_street text,
                 oneway_bicycle boolean,
                 cycle_network text
             )
@@ -79,10 +75,6 @@ SELECT osm_id,
        NULLIF(mtb_scale, '') AS mtb_scale,
        NULLIF(surface, '') AS surface,
        cycleway_value(cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street) AS cycleway,
-       NULLIF(cycleway_both, '') AS cycleway_both,
-       NULLIF(cycleway_left, '') AS cycleway_left,
-       NULLIF(cycleway_right, '') AS cycleway_right,
-       NULLIF(cycleway_street,'') AS cycleway_street,
        oneway_bicycle_value(oneway_bicycle) AS oneway_bicycle,
        NULLIF(cycle_network, '') AS cycle_network
 FROM (
