@@ -9,12 +9,18 @@ CREATE TABLE IF NOT EXISTS place_continent_point.osm_ids
     osm_id bigint
 );
 
+CREATE INDEX IF NOT EXISTS place_continent_point_osm_ids_osm_id_idx ON place_continent_point.osm_ids (osm_id);
+
+
 -- etldoc:  osm_continent_point ->  osm_continent_point
 CREATE OR REPLACE FUNCTION update_osm_continent_point(full_update boolean) RETURNS void AS
 $$
     UPDATE osm_continent_point
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_continent_point.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_continent_point.osm_ids
+        WHERE place_continent_point.osm_ids.osm_id = osm_continent_point.osm_id
+      ))
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 $$ LANGUAGE SQL;

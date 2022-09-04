@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS housenumber.osm_ids
     osm_id bigint
 );
 
+CREATE INDEX IF NOT EXISTS housenumber_osm_ids_osm_id_idx ON housenumber.osm_ids (osm_id);
+
 -- etldoc: osm_housenumber_point -> osm_housenumber_point
 CREATE OR REPLACE FUNCTION convert_housenumber_point(full_update boolean) RETURNS void AS
 $$
@@ -19,7 +21,10 @@ $$
                     THEN ST_Centroid(geometry)
                 ELSE ST_PointOnSurface(geometry)
                 END
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM housenumber.osm_ids))
+    WHERE (full_update OR EXISTS(
+          SELECT NULL FROM housenumber.osm_ids
+          WHERE osm_ids.osm_id = osm_housenumber_point.osm_id
+        ))
         AND ST_GeometryType(geometry) <> 'ST_Point'
         AND ST_IsValid(geometry);
 $$ LANGUAGE SQL;

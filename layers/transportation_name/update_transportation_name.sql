@@ -414,6 +414,7 @@ CREATE TABLE IF NOT EXISTS transportation_name.name_changes
     layer integer,
     indoor boolean,
     network_type route_network_type,
+    network_name character varying,
     route_1 character varying,
     route_2 character varying,
     route_3 character varying,
@@ -421,6 +422,9 @@ CREATE TABLE IF NOT EXISTS transportation_name.name_changes
     route_5 character varying,
     route_6 character varying
 );
+
+CREATE INDEX transportation_name_transportation_name_name_changes_osm_id_idx ON transportation_name.name_changes (osm_id);
+CREATE INDEX transportation_name_transportation_name_name_changes_is_old_idx ON transportation_name.name_changes (is_old);
 
 CREATE OR REPLACE FUNCTION transportation_name.name_network_store() RETURNS trigger AS
 $$
@@ -484,6 +488,7 @@ BEGIN
         layer,
         indoor,
         network_type,
+        network_name,
         route_1, route_2, route_3, route_4, route_5, route_6,
         coalesce(tags->'name', ref) AS name_ref
     FROM ((
@@ -502,6 +507,8 @@ BEGIN
                        id DESC
           )) AS t;
 
+    CREATE INDEX ON name_changes_compact (coalesce(tags->'name', ''), coalesce(ref, ''));
+
     DELETE
     FROM osm_transportation_name_linestring AS n
         USING name_changes_compact AS c
@@ -515,6 +522,7 @@ BEGIN
       AND n.layer IS NOT DISTINCT FROM c.layer
       AND n.indoor IS NOT DISTINCT FROM c.indoor
       AND n.network IS NOT DISTINCT FROM c.network_type
+      AND n.network_name IS NOT DISTINCT FROM c.network_name
       AND n.route_1 IS NOT DISTINCT FROM c.route_1
       AND n.route_2 IS NOT DISTINCT FROM c.route_2
       AND n.route_3 IS NOT DISTINCT FROM c.route_3
@@ -534,8 +542,10 @@ BEGIN
            layer,
            indoor,
            network_type AS network,
+           network_name
            route_1, route_2, route_3, route_4, route_5, route_6,
-           z_order
+           z_order,
+           route_rank
     FROM (
         SELECT ST_LineMerge(ST_Collect(n.geometry)) AS geometry,
             n.tags,
@@ -548,6 +558,7 @@ BEGIN
             n.layer,
             n.indoor,
             n.network_type,
+            n.network_name,
             n.route_1, n.route_2, n.route_3, n.route_4, n.route_5, n.route_6,
             min(n.z_order) AS z_order
         FROM osm_transportation_name_network AS n
@@ -562,14 +573,15 @@ BEGIN
              AND n.layer IS NOT DISTINCT FROM c.layer
              AND n.indoor IS NOT DISTINCT FROM c.indoor
              AND n.network_type IS NOT DISTINCT FROM c.network_type
+             AND n.network_name IS NOT DISTINCT FROM c.network_name
              AND n.route_1 IS NOT DISTINCT FROM c.route_1
              AND n.route_2 IS NOT DISTINCT FROM c.route_2
              AND n.route_3 IS NOT DISTINCT FROM c.route_3
              AND n.route_4 IS NOT DISTINCT FROM c.route_4
              AND n.route_5 IS NOT DISTINCT FROM c.route_5
              AND n.route_6 IS NOT DISTINCT FROM c.route_6
-        GROUP BY n.tags, n.ref, n.highway, n.subclass, n.brunnel, n.sac_scale, n.level, n.layer, n.indoor, n.network_type,
-                 n.route_1, n.route_2, n.route_3, n.route_4, n.route_5, n.route_6
+        GROUP BY n.tags, n.ref, n.highway, n.subclass, n.brunnel, n.sac_scale, n.level, n.layer, n.indoor,
+                 n.network_type, n.network_name, n.route_1, n.route_2, n.route_3, n.route_4, n.route_5, n.route_6
     ) AS highway_union;
 
     -- REFRESH osm_transportation_name_linestring_gen1

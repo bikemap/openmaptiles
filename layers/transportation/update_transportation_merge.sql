@@ -79,6 +79,12 @@ CREATE INDEX IF NOT EXISTS osm_highway_linestring_highway_partial_idx
     ON osm_highway_linestring (highway)
     WHERE highway IN ('motorway', 'trunk');
 
+-- Improve performance of the sql in transportation/update_transportation_name.sql
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_transportation_name_partial_idx
+    ON osm_highway_linestring (highway)
+    WHERE (osm_highway_linestring.name <> '' OR osm_highway_linestring.ref <> '') AND
+          osm_highway_linestring.highway <> '';
+
 
 -- etldoc: osm_highway_linestring_gen_z11 ->  osm_transportation_merge_linestring_gen_z11
 CREATE TABLE IF NOT EXISTS osm_transportation_merge_linestring_gen_z11(
@@ -241,15 +247,22 @@ $$ LANGUAGE plpgsql;
 
 SELECT insert_transportation_merge_linestring_gen_z10(NULL);
 
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z11_osm_id_idx
+    ON osm_transportation_merge_linestring_gen_z11(osm_id);
+
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z10_geometry_idx
     ON osm_transportation_merge_linestring_gen_z10 USING gist (geometry);
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z10_id_idx
     ON osm_transportation_merge_linestring_gen_z10(id);
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z10_osm_id_idx
+    ON osm_transportation_merge_linestring_gen_z10(osm_id);
 
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z9_geometry_idx
     ON osm_transportation_merge_linestring_gen_z9 USING gist (geometry);
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z9_id_idx
     ON osm_transportation_merge_linestring_gen_z9(id);
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z9_osm_id_idx
+    ON osm_transportation_merge_linestring_gen_z9(osm_id);
 
 
 -- etldoc: osm_transportation_merge_linestring_gen_z9 -> osm_transportation_merge_linestring_gen_z8
@@ -397,25 +410,36 @@ $$ LANGUAGE plpgsql;
 
 SELECT insert_transportation_merge_linestring_gen_z7(NULL);
 
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z8_osm_id_idx
+    ON osm_transportation_merge_linestring_gen_z8(osm_id);
+
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z7_geometry_idx
     ON osm_transportation_merge_linestring_gen_z7 USING gist (geometry);
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z7_id_idx
     ON osm_transportation_merge_linestring_gen_z7(id);
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z7_osm_id_idx
+    ON osm_transportation_merge_linestring_gen_z7(osm_id);
 
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z6_geometry_idx
     ON osm_transportation_merge_linestring_gen_z6 USING gist (geometry);
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z6_id_idx
     ON osm_transportation_merge_linestring_gen_z6(id);
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z6_osm_id_idx
+    ON osm_transportation_merge_linestring_gen_z6(osm_id);
 
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z5_geometry_idx
     ON osm_transportation_merge_linestring_gen_z5 USING gist (geometry);
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z5_id_idx
     ON osm_transportation_merge_linestring_gen_z5(id);
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z5_osm_id_idx
+    ON osm_transportation_merge_linestring_gen_z5(osm_id);
 
 CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z4_geometry_idx
     ON osm_transportation_merge_linestring_gen_z4 USING gist (geometry);
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z4_id_idx
     ON osm_transportation_merge_linestring_gen_z4(id);
+CREATE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z4_osm_id_idx
+    ON osm_transportation_merge_linestring_gen_z4(osm_id);
 
 
 -- Handle updates on
@@ -451,6 +475,9 @@ CREATE TABLE IF NOT EXISTS transportation.changes_z11
     cycleway_right text,
     cycleway_street text
 );
+
+CREATE INDEX IF NOT EXISTS transportation_transportation_changes_z11_osm_id_idx ON transportation.changes_z11(osm_id);
+CREATE INDEX IF NOT EXISTS transportation_transportation_changes_z11_is_old_idx ON transportation.changes_z11(is_old);
 
 CREATE OR REPLACE FUNCTION transportation.store_z11() RETURNS trigger AS
 $$
@@ -514,6 +541,10 @@ BEGIN
                  id DESC
     )) AS t;
 
+    CREATE INDEX ON changes_compact (osm_id);
+    CREATE INDEX ON changes_compact (is_old);
+    CREATE INDEX ON changes_compact USING GIST(geometry);
+
     -- Collect all original existing ways from impacted mmerge
     CREATE TEMP TABLE osm_highway_linestring_original AS
     SELECT DISTINCT ON (h.osm_id)
@@ -567,8 +598,8 @@ BEGIN
              AND m.cycleway_right IS NOT DISTINCT FROM c.cycleway_right
              AND m.cycleway_street IS NOT DISTINCT FROM c.cycleway_street
         JOIN osm_highway_linestring_gen_z11 AS h ON
-             h.geometry && c.geometry
-             AND h.osm_id NOT IN (SELECT osm_id FROM changes_compact)
+             NOT EXISTS(SELECT NULL FROM changes_compact WHERE changes_compact.osm_id = h.osm_id)
+             AND h.geometry && c.geometry
              AND ST_Contains(m.geometry, h.geometry)
              AND h.highway IS NOT DISTINCT FROM m.highway
              AND h.network IS NOT DISTINCT FROM m.network
@@ -744,6 +775,9 @@ CREATE TABLE IF NOT EXISTS transportation.changes_z9
     z_order integer
 );
 
+CREATE INDEX IF NOT EXISTS transportation_transportation_changes_z9_osm_id_idx ON transportation.changes_z9(id);
+CREATE INDEX IF NOT EXISTS transportation_transportation_changes_z9_is_old_idx ON transportation.changes_z9(is_old);
+
 CREATE OR REPLACE FUNCTION transportation.store_z9() RETURNS trigger AS
 $$
 BEGIN
@@ -797,6 +831,10 @@ BEGIN
         ORDER BY id,
                  id DESC
     )) AS t;
+
+    CREATE INDEX ON changes_compact (id);
+    CREATE INDEX ON changes_compact (is_old);
+    CREATE INDEX ON changes_compact USING GIST(geometry);
 
     -- Collect all original existing ways from impacted mmerge
     CREATE TEMP TABLE osm_highway_linestring_original AS

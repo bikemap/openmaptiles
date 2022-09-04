@@ -9,12 +9,17 @@ CREATE TABLE IF NOT EXISTS mountain_linestring.osm_ids
     osm_id bigint
 );
 
+CREATE INDEX IF NOT EXISTS mountain_linestring_osm_ids_osm_id_idx ON mountain_linestring.osm_ids (osm_id);
+
 -- etldoc:  osm_mountain_linestring ->  osm_mountain_linestring
 CREATE OR REPLACE FUNCTION update_osm_mountain_linestring(full_update boolean) RETURNS void AS
 $$
     UPDATE osm_mountain_linestring
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM mountain_linestring.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM mountain_linestring.osm_ids
+        WHERE mountain_linestring.osm_ids.osm_id = osm_mountain_linestring.osm_id
+      ))
       AND COALESCE(tags -> 'name:latin', tags -> 'name:nonlatin', tags -> 'name_int') IS NULL
       AND tags != update_tags(tags, geometry)
 $$ LANGUAGE SQL;

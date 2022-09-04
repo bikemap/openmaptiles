@@ -123,6 +123,10 @@ CREATE TABLE IF NOT EXISTS waterway_important.changes
     name_de character varying,
     tags hstore
 );
+
+CREATE INDEX IF NOT EXISTS waterway_important_waterway_important_changes_osm_id_idx ON waterway_important.changes (osm_id);
+CREATE INDEX IF NOT EXISTS waterway_important_waterway_important_changes_is_old_idx ON waterway_important.changes (is_old);
+
 CREATE OR REPLACE FUNCTION waterway_important.store() RETURNS trigger AS
 $$
 BEGIN

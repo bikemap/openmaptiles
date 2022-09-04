@@ -35,6 +35,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE INDEX IF NOT EXISTS osm_poi_point_station_subway_partial_idx ON osm_poi_point (station, subclass)
+    WHERE station = 'subway' AND subclass = 'station';
+
+CREATE INDEX IF NOT EXISTS osm_poi_point_funicular_halt_partial_idx ON osm_poi_point (funicular, subclass)
+    WHERE funicular = 'yes' AND subclass = 'station';
+
+CREATE INDEX IF NOT EXISTS osm_poi_point_atm_name_partial_idx ON osm_poi_point (subclass, name, COALESCE(tags -> 'operator', tags -> 'network'))
+    WHERE subclass = 'atm' AND name = '' AND COALESCE(tags -> 'operator', tags -> 'network') IS NOT NULL;
+
 SELECT update_osm_poi_point();
 
 -- etldoc:  osm_poi_stop_rank ->  osm_poi_point

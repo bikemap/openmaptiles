@@ -138,6 +138,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE INDEX IF NOT EXISTS osm_route_member_osm_id_idx ON osm_route_member ("osm_id");
 CREATE INDEX IF NOT EXISTS osm_route_member_network_idx ON osm_route_member ("network");
 CREATE INDEX IF NOT EXISTS osm_route_member_member_idx ON osm_route_member ("member");
 CREATE INDEX IF NOT EXISTS osm_route_member_name_idx ON osm_route_member ("name");
@@ -155,6 +156,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS osm_highway_linestring_gen_z11_osm_id_idx ON o
 
 ALTER TABLE osm_route_member ADD COLUMN IF NOT EXISTS concurrency_index int,
                              ADD COLUMN IF NOT EXISTS rank int;
+
+CREATE INDEX IF NOT EXISTS osm_route_member_concurrency_index_idx ON osm_route_member ("concurrency_index");
+CREATE INDEX IF NOT EXISTS osm_route_member_rank_idx ON osm_route_member ("rank");
+
 
 -- One-time load of concurrency indexes; updates occur via trigger
 INSERT INTO osm_route_member (id, osm_id, network, network_type, concurrency_index, rank, name)
