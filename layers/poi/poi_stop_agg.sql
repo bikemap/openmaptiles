@@ -1,3 +1,8 @@
+
+CREATE INDEX osm_poi_point_subclass_partial_idx ON osm_poi_point (subclass)
+    WHERE subclass IN ('bus_stop', 'bus_station', 'tram_stop', 'subway');
+CREATE INDEX IF NOT EXISTS osm_poi_point_uic_ref_idx ON osm_poi_point (uic_ref);
+
 -- etldoc:  osm_poi_point ->  osm_poi_stop_centroid
 DROP MATERIALIZED VIEW IF EXISTS osm_poi_stop_centroid CASCADE;
 CREATE MATERIALIZED VIEW osm_poi_stop_centroid AS
@@ -11,6 +16,8 @@ WHERE uic_ref <> ''
 GROUP BY uic_ref
 HAVING count(*) > 1
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
+
+CREATE INDEX osm_poi_stop_centroid_uic_ref_idx ON osm_poi_stop_centroid (uic_ref);
 
 -- etldoc:  osm_poi_stop_centroid ->  osm_poi_stop_rank
 -- etldoc:  osm_poi_point ->  osm_poi_stop_rank
@@ -32,3 +39,6 @@ FROM osm_poi_point p
 WHERE subclass IN ('bus_stop', 'bus_station', 'tram_stop', 'subway')
 ORDER BY p.uic_ref, rk
     ) /* DELAY_MATERIALIZED_VIEW_CREATION */;
+
+CREATE INDEX osm_poi_stop_rank_osm_id_idx ON osm_poi_stop_rank (osm_id);
+CREATE INDEX osm_poi_stop_rank_rk_idx ON osm_poi_stop_rank (rk);

@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS place_island_point;
 
 CREATE TABLE IF NOT EXISTS place_island_point.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc:  osm_island_point ->  osm_island_point
@@ -14,7 +14,10 @@ CREATE OR REPLACE FUNCTION update_osm_island_point(full_update boolean) RETURNS 
 $$
     UPDATE osm_island_point
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_island_point.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_island_point.osm_ids
+        WHERE place_island_point.osm_ids.osm_id = osm_island_point.osm_id
+      ))
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 $$ LANGUAGE SQL;
@@ -27,9 +30,9 @@ CREATE OR REPLACE FUNCTION place_island_point.store() RETURNS trigger AS
 $$
 BEGIN
     IF (tg_op = 'DELETE') THEN
-        INSERT INTO place_island_point.osm_ids VALUES (OLD.osm_id);
+        INSERT INTO place_island_point.osm_ids VALUES (OLD.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     ELSE
-        INSERT INTO place_island_point.osm_ids VALUES (NEW.osm_id);
+        INSERT INTO place_island_point.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     END IF;
     RETURN NULL;
 END;
@@ -55,6 +58,9 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh place_island_point';
+
+    ANALYZE VERBOSE place_island_point.osm_ids;
+
     PERFORM update_osm_island_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM place_island_point.osm_ids;

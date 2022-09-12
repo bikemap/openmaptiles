@@ -12,7 +12,7 @@ CREATE SCHEMA IF NOT EXISTS aerodrome_label;
 
 CREATE TABLE IF NOT EXISTS aerodrome_label.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc: osm_aerodrome_label_point -> osm_aerodrome_label_point
@@ -20,12 +20,18 @@ CREATE OR REPLACE FUNCTION update_aerodrome_label_point(full_update boolean) RET
 $$
     UPDATE osm_aerodrome_label_point
     SET geometry = ST_Centroid(geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM aerodrome_label.osm_ids))
+    WHERE (full_update OR EXISTS(
+          SELECT NULL FROM aerodrome_label.osm_ids
+          WHERE osm_ids.osm_id = osm_aerodrome_label_point.osm_id
+        ))
         AND ST_GeometryType(geometry) <> 'ST_Point';
 
     UPDATE osm_aerodrome_label_point
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM aerodrome_label.osm_ids))
+    WHERE (full_update OR EXISTS(
+          SELECT NULL FROM aerodrome_label.osm_ids
+          WHERE osm_ids.osm_id = osm_aerodrome_label_point.osm_id
+        ))
         AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
         AND tags != update_tags(tags, geometry);
 
@@ -34,7 +40,10 @@ $$
        CASE
 	    %%FIELD_MAPPING: class %%
 	    ELSE 'other' END
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM aerodrome_label.osm_ids))
+    WHERE (full_update OR EXISTS(
+      SELECT NULL FROM aerodrome_label.osm_ids
+      WHERE osm_ids.osm_id = osm_aerodrome_label_point.osm_id
+    ))
     AND aerodrome_type !=
        CASE
 	    %%FIELD_MAPPING: class %%
@@ -49,9 +58,9 @@ CREATE OR REPLACE FUNCTION aerodrome_label.store() RETURNS trigger AS
 $$
 BEGIN
     IF (tg_op = 'DELETE') THEN
-        INSERT INTO aerodrome_label.osm_ids VALUES (OLD.osm_id);
+        INSERT INTO aerodrome_label.osm_ids VALUES (OLD.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     ELSE
-        INSERT INTO aerodrome_label.osm_ids VALUES (NEW.osm_id);
+        INSERT INTO aerodrome_label.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     END IF;
     RETURN NULL;
 END;
@@ -77,6 +86,9 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh aerodrome_label';
+
+    ANALYZE VERBOSE aerodrome_label.osm_ids;
+
     PERFORM update_aerodrome_label_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM aerodrome_label.osm_ids;

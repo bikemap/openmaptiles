@@ -1,3 +1,11 @@
+DROP TRIGGER IF EXISTS trigger_store_transportation_route_member ON osm_route_member;
+DROP TRIGGER IF EXISTS trigger_store_transportation_superroute_member ON osm_superroute_member;
+DROP TRIGGER IF EXISTS trigger_store_transportation_highway_linestring ON osm_highway_linestring;
+
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_highway_partial_idx
+    ON osm_highway_linestring (highway)
+    WHERE highway IN ('motorway', 'trunk');
+
 CREATE TABLE IF NOT EXISTS ne_10m_admin_0_bg_buffer AS
 SELECT ST_Buffer(geometry, 10000)
 FROM ne_10m_admin_0_countries
@@ -49,6 +57,8 @@ CREATE OR REPLACE FUNCTION update_osm_route_member() RETURNS void AS
 $$
 BEGIN
 
+    ANALYZE VERBOSE transportation_name.superroute_changes;
+
     ALTER TABLE transportation_name.network_changes DISABLE TRIGGER trigger_flag_transportation_name;
     INSERT INTO transportation_name.network_changes(osm_id)
     WITH RECURSIVE recursive_superroute_children AS (
@@ -66,6 +76,8 @@ BEGIN
     WHERE osm_route_member.osm_id = recursive_superroute_children.member
     ON CONFLICT(osm_id) DO NOTHING;
     ALTER TABLE transportation_name.network_changes ENABLE TRIGGER trigger_flag_transportation_name;
+
+    ANALYZE VERBOSE transportation_name.network_changes;
 
     DELETE
     FROM osm_route_member AS r
@@ -127,8 +139,11 @@ BEGIN
         ) AS ordered_superroute_members
         WHERE ordered_superroute_members.dense_rank = 1
     ) AS srm ON srm.member = rm.osm_id
-    WHERE rm.member IN
-      (SELECT DISTINCT osm_id FROM transportation_name.network_changes)
+    WHERE EXISTS(
+        SELECT NULL
+        FROM transportation_name.network_changes
+        WHERE transportation_name.network_changes.osm_id = rm.member
+    )
     ON CONFLICT (id, osm_id) DO UPDATE SET concurrency_index = EXCLUDED.concurrency_index,
                                            rank = EXCLUDED.rank,
                                            network = EXCLUDED.network,
@@ -138,23 +153,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE INDEX IF NOT EXISTS osm_route_member_osm_id_idx ON osm_route_member ("osm_id");
 CREATE INDEX IF NOT EXISTS osm_route_member_network_idx ON osm_route_member ("network");
 CREATE INDEX IF NOT EXISTS osm_route_member_member_idx ON osm_route_member ("member");
 CREATE INDEX IF NOT EXISTS osm_route_member_name_idx ON osm_route_member ("name");
 CREATE INDEX IF NOT EXISTS osm_route_member_ref_idx ON osm_route_member ("ref");
 
 CREATE INDEX IF NOT EXISTS osm_superroute_member_osm_id_idx ON osm_superroute_member ("osm_id");
-CREATE INDEX IF NOT EXISTS osm_superroute_member_network_idx ON osm_superroute_member ("network");
 CREATE INDEX IF NOT EXISTS osm_superroute_member_member_idx ON osm_superroute_member ("member");
-CREATE INDEX IF NOT EXISTS osm_superroute_member_ref_idx ON osm_superroute_member ("ref");
-
-CREATE INDEX IF NOT EXISTS osm_route_member_network_type_idx ON osm_route_member ("network_type");
 
 CREATE INDEX IF NOT EXISTS osm_highway_linestring_osm_id_idx ON osm_highway_linestring ("osm_id");
 CREATE UNIQUE INDEX IF NOT EXISTS osm_highway_linestring_gen_z11_osm_id_idx ON osm_highway_linestring_gen_z11 ("osm_id");
 
 ALTER TABLE osm_route_member ADD COLUMN IF NOT EXISTS concurrency_index int,
                              ADD COLUMN IF NOT EXISTS rank int;
+
+CREATE INDEX IF NOT EXISTS osm_route_member_concurrency_index_idx ON osm_route_member ("concurrency_index");
+CREATE INDEX IF NOT EXISTS osm_route_member_rank_idx ON osm_route_member ("rank");
 
 -- One-time load of concurrency indexes; updates occur via trigger
 INSERT INTO osm_route_member (id, osm_id, network, network_type, concurrency_index, rank, name)

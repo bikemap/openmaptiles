@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS housenumber;
 
 CREATE TABLE IF NOT EXISTS housenumber.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc: osm_housenumber_point -> osm_housenumber_point
@@ -19,7 +19,10 @@ $$
                     THEN ST_Centroid(geometry)
                 ELSE ST_PointOnSurface(geometry)
                 END
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM housenumber.osm_ids))
+    WHERE (full_update OR EXISTS(
+          SELECT NULL FROM housenumber.osm_ids
+          WHERE osm_ids.osm_id = osm_housenumber_point.osm_id
+        ))
         AND ST_GeometryType(geometry) <> 'ST_Point'
         AND ST_IsValid(geometry);
 $$ LANGUAGE SQL;
@@ -32,9 +35,9 @@ CREATE OR REPLACE FUNCTION housenumber.store() RETURNS trigger AS
 $$
 BEGIN
     IF (tg_op = 'DELETE') THEN
-        INSERT INTO housenumber.osm_ids VALUES (OLD.osm_id);
+        INSERT INTO housenumber.osm_ids VALUES (OLD.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     ELSE
-        INSERT INTO housenumber.osm_ids VALUES (NEW.osm_id);
+        INSERT INTO housenumber.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     END IF;
     RETURN NULL;
 END;
@@ -60,6 +63,9 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh housenumber';
+
+    ANALYZE VERBOSE housenumber.osm_ids;
+
     PERFORM convert_housenumber_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM housenumber.osm_ids;
