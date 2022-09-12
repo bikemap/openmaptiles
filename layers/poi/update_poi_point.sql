@@ -1,18 +1,29 @@
-DROP TRIGGER IF EXISTS trigger_flag ON osm_poi_point;
-DROP TRIGGER IF EXISTS trigger_refresh ON poi_point.updates;
+
+CREATE SCHEMA IF NOT EXISTS poi_point;
+
+CREATE TABLE IF NOT EXISTS poi_point.osm_ids
+(
+    osm_id bigint PRIMARY KEY
+);
 
 -- etldoc:  osm_poi_point ->  osm_poi_point
-CREATE OR REPLACE FUNCTION update_osm_poi_point() RETURNS void AS
+CREATE OR REPLACE FUNCTION update_osm_poi_point(full_update bool) RETURNS void AS
 $$
 BEGIN
     UPDATE osm_poi_point
     SET subclass = 'subway'
-    WHERE station = 'subway'
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM poi_point.osm_ids WHERE poi_point.osm_ids.osm_id = osm_poi_point.osm_id
+      ))
+      AND station = 'subway'
       AND subclass = 'station';
 
     UPDATE osm_poi_point
     SET subclass = 'halt'
-    WHERE funicular = 'yes'
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM poi_point.osm_ids WHERE poi_point.osm_ids.osm_id = osm_poi_point.osm_id
+      ))
+      AND funicular = 'yes'
       AND subclass = 'station';
 
     -- ATM without name 
@@ -23,7 +34,10 @@ BEGIN
         COALESCE(tags -> 'operator', tags -> 'network'),
         tags || hstore('name', COALESCE(tags -> 'operator', tags -> 'network'))
     )
-    WHERE subclass = 'atm'
+    WHERE(full_update OR EXISTS(
+        SELECT NULL FROM poi_point.osm_ids WHERE poi_point.osm_ids.osm_id = osm_poi_point.osm_id
+      ))
+      AND subclass = 'atm'
       AND name = ''
       AND COALESCE(tags -> 'operator', tags -> 'network') IS NOT NULL;
 
@@ -41,13 +55,25 @@ BEGIN
 
     UPDATE osm_poi_point
     SET tags = update_tags(tags, geometry)
-    WHERE COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM poi_point.osm_ids WHERE poi_point.osm_ids.osm_id = osm_poi_point.osm_id
+      ))
+      AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 
 END;
 $$ LANGUAGE plpgsql;
 
-SELECT update_osm_poi_point();
+CREATE INDEX IF NOT EXISTS osm_poi_point_station_subway_partial_idx ON osm_poi_point (station, subclass)
+    WHERE station = 'subway' AND subclass = 'station';
+
+CREATE INDEX IF NOT EXISTS osm_poi_point_funicular_halt_partial_idx ON osm_poi_point (funicular, subclass)
+    WHERE funicular = 'yes' AND subclass = 'station';
+
+CREATE INDEX IF NOT EXISTS osm_poi_point_atm_name_partial_idx ON osm_poi_point (subclass, name, COALESCE(tags -> 'operator', tags -> 'network'))
+    WHERE subclass = 'atm' AND name = '' AND COALESCE(tags -> 'operator', tags -> 'network') IS NOT NULL;
+
+SELECT update_osm_poi_point(TRUE);
 
 -- etldoc:  osm_poi_stop_rank ->  osm_poi_point
 CREATE OR REPLACE FUNCTION update_osm_poi_point_agg() RETURNS void AS
@@ -91,7 +117,17 @@ SELECT update_osm_poi_point_agg();
 
 -- Handle updates
 
-CREATE SCHEMA IF NOT EXISTS poi_point;
+CREATE OR REPLACE FUNCTION poi_point.store() RETURNS trigger AS
+$$
+BEGIN
+    IF (tg_op = 'DELETE') THEN
+        INSERT INTO poi_point.osm_ids VALUES (OLD.osm_id) ON CONFLICT (osm_id) DO NOTHING;
+    ELSE
+        INSERT INTO poi_point.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
+    END IF;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TABLE IF NOT EXISTS poi_point.updates
 (
@@ -113,10 +149,15 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh poi_point';
-    PERFORM update_osm_poi_point();
+
+    ANALYZE VERBOSE poi_point.osm_ids;
+
+    PERFORM update_osm_poi_point(FALSE);
     REFRESH MATERIALIZED VIEW osm_poi_stop_centroid;
     REFRESH MATERIALIZED VIEW osm_poi_stop_rank;
     PERFORM update_osm_poi_point_agg();
+    -- noinspection SqlWithoutWhere
+    DELETE FROM poi_point.osm_ids;
     -- noinspection SqlWithoutWhere
     DELETE FROM poi_point.updates;
 
@@ -125,11 +166,23 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS trigger_store ON osm_poi_point;
+
+CREATE TRIGGER trigger_store
+    AFTER INSERT OR UPDATE OR DELETE
+    ON osm_poi_point
+    FOR EACH ROW
+EXECUTE PROCEDURE poi_point.store();
+
+DROP TRIGGER IF EXISTS trigger_flag ON osm_poi_point;
+
 CREATE TRIGGER trigger_flag
     AFTER INSERT OR UPDATE OR DELETE
     ON osm_poi_point
     FOR EACH STATEMENT
 EXECUTE PROCEDURE poi_point.flag();
+
+DROP TRIGGER IF EXISTS trigger_refresh ON poi_point.updates;
 
 CREATE CONSTRAINT TRIGGER trigger_refresh
     AFTER INSERT

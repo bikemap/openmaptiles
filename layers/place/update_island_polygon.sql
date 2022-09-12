@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS place_island_polygon;
 
 CREATE TABLE IF NOT EXISTS place_island_polygon.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc:  osm_island_polygon ->  osm_island_polygon
@@ -14,13 +14,19 @@ CREATE OR REPLACE FUNCTION update_osm_island_polygon(full_update boolean) RETURN
 $$
     UPDATE osm_island_polygon
     SET geometry = ST_PointOnSurface(geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_island_polygon.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_island_polygon.osm_ids
+        WHERE place_island_polygon.osm_ids.osm_id = osm_island_polygon.osm_id
+      ))
       AND ST_GeometryType(geometry) <> 'ST_Point'
       AND ST_IsValid(geometry);
 
     UPDATE osm_island_polygon
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_island_polygon.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_island_polygon.osm_ids
+        WHERE place_island_polygon.osm_ids.osm_id = osm_island_polygon.osm_id
+      ))
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 
@@ -34,9 +40,9 @@ CREATE OR REPLACE FUNCTION place_island_polygon.store() RETURNS trigger AS
 $$
 BEGIN
     IF (tg_op = 'DELETE') THEN
-        INSERT INTO place_island_polygon.osm_ids VALUES (OLD.osm_id);
+        INSERT INTO place_island_polygon.osm_ids VALUES (OLD.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     ELSE
-        INSERT INTO place_island_polygon.osm_ids VALUES (NEW.osm_id);
+        INSERT INTO place_island_polygon.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     END IF;
     RETURN NULL;
 END;
@@ -62,6 +68,9 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh place_island_polygon';
+
+    ANALYZE VERBOSE place_island_polygon.osm_ids;
+
     PERFORM update_osm_island_polygon(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM place_island_polygon.osm_ids;

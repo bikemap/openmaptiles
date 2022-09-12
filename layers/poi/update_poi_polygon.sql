@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS poi_polygon;
 
 CREATE TABLE IF NOT EXISTS poi_polygon.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc:  osm_poi_polygon ->  osm_poi_polygon
@@ -20,29 +20,43 @@ $$
                     THEN ST_Centroid(geometry)
                 ELSE ST_PointOnSurface(geometry)
                 END
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM poi_polygon.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM poi_polygon.osm_ids WHERE poi_polygon.osm_ids.osm_id = osm_poi_polygon.osm_id
+      ))
       AND ST_GeometryType(geometry) <> 'ST_Point'
       AND ST_IsValid(geometry);
 
     UPDATE osm_poi_polygon
     SET subclass = 'subway'
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM poi_polygon.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM poi_polygon.osm_ids WHERE poi_polygon.osm_ids.osm_id = osm_poi_polygon.osm_id
+      ))
       AND station = 'subway'
       AND subclass = 'station';
 
     UPDATE osm_poi_polygon
     SET subclass = 'halt'
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM poi_polygon.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM poi_polygon.osm_ids WHERE poi_polygon.osm_ids.osm_id = osm_poi_polygon.osm_id
+      ))
       AND funicular = 'yes'
       AND subclass = 'station';
 
     UPDATE osm_poi_polygon
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM poi_polygon.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM poi_polygon.osm_ids WHERE poi_polygon.osm_ids.osm_id = osm_poi_polygon.osm_id
+      ))
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 
 $$ LANGUAGE SQL;
+
+CREATE INDEX IF NOT EXISTS osm_poi_polygon_station_subway_partial_idx ON osm_poi_polygon (station, subclass)
+    WHERE station = 'subway' AND subclass = 'station';
+
+CREATE INDEX IF NOT EXISTS osm_poi_polygon_funicular_halt_partial_idx ON osm_poi_polygon (funicular, subclass)
+    WHERE funicular = 'yes' AND subclass = 'station';
 
 SELECT update_poi_polygon(true);
 
@@ -52,9 +66,9 @@ CREATE OR REPLACE FUNCTION poi_polygon.store() RETURNS trigger AS
 $$
 BEGIN
     IF (tg_op = 'DELETE') THEN
-        INSERT INTO poi_polygon.osm_ids VALUES (OLD.osm_id);
+        INSERT INTO poi_polygon.osm_ids VALUES (OLD.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     ELSE
-        INSERT INTO poi_polygon.osm_ids VALUES (NEW.osm_id);
+        INSERT INTO poi_polygon.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     END IF;
     RETURN NULL;
 END;
@@ -80,6 +94,9 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh poi_polygon';
+
+    ANALYZE VERBOSE poi_polygon.osm_ids;
+
     PERFORM update_poi_polygon(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM poi_polygon.osm_ids;
