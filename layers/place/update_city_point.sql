@@ -74,6 +74,8 @@ CREATE INDEX IF NOT EXISTS osm_city_point_place_partial_update_idx ON osm_city_p
 
 SELECT update_osm_city_point(true);
 
+-- Indexes for queries originating from update_osm_city_point() function
+CREATE INDEX IF NOT EXISTS osm_city_point_osm_id_idx ON osm_city_point (osm_id);
 CREATE INDEX IF NOT EXISTS osm_city_point_rank_idx ON osm_city_point ("rank");
 
 -- Handle updates

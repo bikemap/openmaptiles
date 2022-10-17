@@ -192,6 +192,10 @@ $$ LANGUAGE plpgsql;
 
 SELECT update_osm_park_polygon(TRUE);
 
+-- Indexes for queries originating from update_osm_park_polygon() function
+CREATE INDEX IF NOT EXISTS osm_park_polygon_osm_id_idx ON osm_park_polygon (osm_id);
+
+-- Geometry Indexes
 CREATE INDEX IF NOT EXISTS osm_park_polygon_point_geom_idx ON osm_park_polygon USING gist (geometry_point);
 CREATE INDEX IF NOT EXISTS osm_park_polygon_gen_z13_point_geom_idx ON osm_park_polygon_gen_z13 USING gist (geometry_point);
 CREATE INDEX IF NOT EXISTS osm_park_polygon_gen_z12_point_geom_idx ON osm_park_polygon_gen_z12 USING gist (geometry_point);

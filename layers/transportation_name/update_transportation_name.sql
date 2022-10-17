@@ -1226,6 +1226,7 @@ $BODY$ LANGUAGE plpgsql;
 -- Indexes for queries originating from transportation_name.refresh_shipway_linestring() function
 CREATE INDEX IF NOT EXISTS transportation_name_shipway_changes_is_old_idx
     ON transportation_name.shipway_changes (is_old);
+CREATE INDEX IF NOT EXISTS osm_shipway_linestring_osm_id_idx ON osm_shipway_linestring (osm_id);
 
 CREATE OR REPLACE FUNCTION transportation_name.refresh_aerialway_linestring() RETURNS trigger AS
 $BODY$
@@ -1400,6 +1401,7 @@ $BODY$ LANGUAGE plpgsql;
 -- Indexes for queries originating from transportation_name.refresh_aerialway_linestring() function
 CREATE INDEX IF NOT EXISTS transportation_name_aerialway_changes_is_old_idx
     ON transportation_name.aerialway_changes (is_old);
+CREATE INDEX IF NOT EXISTS osm_aerialway_linestring_osm_id_idx ON osm_aerialway_linestring (osm_id);
 
 -- Indexes for queries originating from transportation_name.refresh_* functions
 CREATE INDEX IF NOT EXISTS osm_transportation_name_linestring_source_idx

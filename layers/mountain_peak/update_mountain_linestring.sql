@@ -24,6 +24,9 @@ $$ LANGUAGE SQL;
 
 SELECT update_osm_mountain_linestring(true);
 
+-- Indexes for queries originating from update_osm_peak_point() function
+CREATE INDEX IF NOT EXISTS osm_mountain_linestring_osm_id_idx ON osm_mountain_linestring (osm_id);
+
 -- Handle updates
 
 CREATE OR REPLACE FUNCTION mountain_linestring.store() RETURNS trigger AS
