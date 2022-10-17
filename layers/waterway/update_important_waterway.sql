@@ -47,6 +47,11 @@ CREATE TABLE IF NOT EXISTS osm_important_waterway_linestring_source_ids(
     PRIMARY KEY (id, source_id)
 );
 
+-- Create temporary Merged-LineString to Source-LineStrings-ID table to temporarily store relations before they have
+-- been intersected
+CREATE TEMPORARY TABLE initial_osm_important_waterway_linestring_source_ids
+(LIKE osm_important_waterway_linestring_source_ids INCLUDING INDEXES);
+
 -- Ensure tables are emtpy if they haven't been created
 TRUNCATE osm_important_waterway_linestring;
 TRUNCATE osm_important_waterway_linestring_source_ids;
@@ -87,7 +92,7 @@ WITH inserted_linestrings AS (
     RETURNING id, source_ids
 )
 -- Store OSM-IDs of Source-LineStrings
-INSERT INTO osm_important_waterway_linestring_source_ids (id, source_id)
+INSERT INTO initial_osm_important_waterway_linestring_source_ids (id, source_id)
 SELECT id, unnest(source_ids) AS source_id
 FROM inserted_linestrings
 ON CONFLICT (id, source_id) DO NOTHING;
@@ -132,6 +137,44 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Create index on id columns and analyze the initial Merged-LineString to Source-LineStrings-ID Relations table to
+-- speed up subsequent queries
+CREATE INDEX ON initial_osm_important_waterway_linestring_source_ids (id, source_id);
+ANALYZE initial_osm_important_waterway_linestring_source_ids;
+
+-- Index for filling and updating osm_important_waterway_linestring table
+CREATE INDEX IF NOT EXISTS osm_waterway_linestring_osm_id_idx ON osm_waterway_linestring (osm_id);
+
+-- Store OSM-IDs of Source-LineStrings by intersecting Merged-LineStrings with their sources. This required because
+-- ST_LineMerge only merges across singular intersections and groups its output into a MultiLineString if
+-- more than two LineStrings form an intersection or no intersection could be found.
+-- Execute after indexes have been created on osm_transportation_merge_linestring_gen_z11 to improve performance
+INSERT INTO osm_important_waterway_linestring_source_ids (id, source_id)
+SELECT m.id, source_id
+FROM osm_important_waterway_linestring m, initial_osm_important_waterway_linestring_source_ids s
+WHERE (
+    EXISTS(
+        SELECT NULL
+        FROM osm_waterway_linestring
+        WHERE m.id = s.id AND
+              osm_waterway_linestring.osm_id = s.source_id AND
+              ST_Intersects(osm_waterway_linestring.geometry, m.geometry)
+    )
+) ON CONFLICT (id, source_id) DO NOTHING;
+
+-- Drop temporary tables early to save resources
+DROP TABLE initial_osm_important_waterway_linestring_source_ids;
+
+-- Update Merged-LineStrings with Source-LineStrings-IDs from Merged-LineString to Source-LineStrings-ID Relations table
+-- Execute after indexes have been created on osm_transportation_merge_linestring_gen_z11 to improve performance
+UPDATE osm_important_waterway_linestring SET source_ids = q.source_ids
+FROM (
+    SELECT id, array_agg(source_id) AS source_ids
+    FROM osm_important_waterway_linestring_source_ids
+    GROUP BY id
+) q
+WHERE osm_important_waterway_linestring.id = q.id;
 
 CREATE SCHEMA IF NOT EXISTS waterway_important;
 
@@ -467,6 +510,11 @@ BEGIN
     CREATE INDEX ON clustered_linestrings_to_merge (cluster_group, cluster);
     ANALYZE clustered_linestrings_to_merge;
 
+    -- Create temporary Merged-LineString to Source-LineStrings-ID table to temporarily store relations before they have
+    -- been intersected
+    CREATE TEMPORARY TABLE inserted_relations
+    (LIKE osm_important_waterway_linestring_source_ids INCLUDING INDEXES);
+
     WITH inserted_linestrings AS (
         -- Merge LineStrings of each cluster and insert them
         INSERT INTO osm_important_waterway_linestring (geometry, source_ids, name, name_en, name_de, tags)
@@ -493,8 +541,45 @@ BEGIN
     FROM inserted_linestrings
     ON CONFLICT (id, source_id) DO NOTHING;
 
-    -- Cleanup
+    -- Drop temporary tables early to save resources
     DROP TABLE clustered_linestrings_to_merge;
+
+    -- Create index on id columns and analyze the inserted Merged-LineString to Source-LineStrings-ID Relations table to
+    -- speed up subsequent queries
+    CREATE INDEX ON inserted_relations (id, source_id);
+    ANALYZE inserted_relations;
+
+    -- Store OSM-IDs of Source-LineStrings by intersecting Merged-LineStrings with their sources. This required because
+    -- ST_LineMerge only merges across singular intersections and groups its output into a MultiLineString if
+    -- more than two LineStrings form an intersection or no intersection could be found.
+    -- Execute after indexes have been created on osm_transportation_merge_linestring_gen_z11 to improve performance
+    WITH intersected_relations AS (
+        INSERT INTO osm_important_waterway_linestring_source_ids (id, source_id)
+        SELECT m.id, source_id
+        FROM osm_important_waterway_linestring m, inserted_relations s
+        WHERE (
+            EXISTS(
+                SELECT NULL
+                FROM osm_waterway_linestring
+                WHERE m.id = s.id AND
+                      osm_waterway_linestring.osm_id = s.source_id AND
+                      ST_Intersects(osm_waterway_linestring.geometry, m.geometry)
+            )
+        ) ON CONFLICT (id, source_id) DO NOTHING
+        RETURNING id, source_id
+    )
+    -- Update Merged-LineStrings with Source-LineStrings-IDs from Merged-LineString to Source-LineStrings-ID Relations
+    -- table
+    UPDATE osm_important_waterway_linestring SET source_ids = q.source_ids
+    FROM (
+        SELECT id, array_agg(source_id) AS source_ids
+        FROM intersected_relations
+        GROUP BY id
+    ) q
+    WHERE osm_important_waterway_linestring.id = q.id;
+
+    -- Cleanup
+    DROP TABLE inserted_relations;
     -- noinspection SqlWithoutWhere
     DELETE FROM waterway_important.changes;
     -- noinspection SqlWithoutWhere
