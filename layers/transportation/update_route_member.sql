@@ -1,5 +1,7 @@
+DROP TRIGGER IF EXISTS trigger_store_transportation_highway_linestring ON osm_highway_linestring;
+
 CREATE TABLE IF NOT EXISTS ne_10m_admin_0_bg_buffer AS
-SELECT ST_Buffer(geometry, 10000)
+SELECT ST_Buffer(geometry, 10000) AS geometry
 FROM ne_10m_admin_0_countries
 WHERE iso_a2 = 'GB';
 
@@ -9,10 +11,24 @@ SELECT 0,
        substring(ref FROM E'^[AM][0-9AM()]+'),
        CASE WHEN highway = 'motorway' THEN 'omt-gb-motorway' ELSE 'omt-gb-trunk' END
 FROM osm_highway_linestring
-WHERE length(ref) > 0
-  AND ST_Intersects(geometry, (SELECT * FROM ne_10m_admin_0_bg_buffer))
+WHERE coalesce(ref, '') <> ''
   AND highway IN ('motorway', 'trunk')
+  AND EXISTS(
+      SELECT NULL
+      FROM ne_10m_admin_0_bg_buffer
+      WHERE ST_Intersects(ne_10m_admin_0_bg_buffer.geometry, osm_highway_linestring.geometry)
+  )
 ;
+
+-- Indexes for queries originating from gbr_route_members_view
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_highway_partial_idx
+    ON osm_highway_linestring (coalesce(ref, ''), highway)
+    WHERE coalesce(ref, '') <> '' AND highway IN ('motorway', 'trunk');
+CREATE INDEX IF NOT EXISTS ne_10m_admin_0_bg_buffer_geometry_idx ON ne_10m_admin_0_bg_buffer USING gist (geometry);
+
+-- Index for Network-Based queries against osm_route_member table
+CREATE INDEX IF NOT EXISTS osm_route_member_network_idx ON osm_route_member ("network");
+
 -- Create GBR relations (so we can use it in the same way as other relations)
 DELETE
 FROM osm_route_member
@@ -57,8 +73,7 @@ BEGIN
     INSERT INTO osm_route_member (osm_id, member, ref, network)
     SELECT r.*
     FROM gbr_route_members_view AS r
-             JOIN transportation_name.network_changes AS c ON
-        r.osm_id = c.osm_id;
+    WHERE EXISTS (SELECT NULL FROM transportation_name.network_changes AS c WHERE c.osm_id = r.osm_id);
 
     INSERT INTO osm_route_member (id, osm_id, network_type, concurrency_index, rank)
     SELECT
@@ -72,23 +87,23 @@ BEGIN
            WHEN osmc_symbol || colour <> '' THEN 2
       END AS rank
     FROM osm_route_member rm
-    WHERE rm.member IN
-      (SELECT DISTINCT osm_id FROM transportation_name.network_changes)
+    WHERE EXISTS(
+        SELECT NULL
+        FROM transportation_name.network_changes
+        WHERE transportation_name.network_changes.osm_id = rm.member
+    )
     ON CONFLICT (id, osm_id) DO UPDATE SET concurrency_index = EXCLUDED.concurrency_index,
                                            rank = EXCLUDED.rank,
                                            network_type = EXCLUDED.network_type;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE INDEX IF NOT EXISTS osm_route_member_network_idx ON osm_route_member ("network");
+-- Indexes for ID-Based queries against osm_route_member table
+CREATE INDEX IF NOT EXISTS osm_route_member_osm_id_idx ON osm_route_member ("osm_id");
 CREATE INDEX IF NOT EXISTS osm_route_member_member_idx ON osm_route_member ("member");
-CREATE INDEX IF NOT EXISTS osm_route_member_name_idx ON osm_route_member ("name");
-CREATE INDEX IF NOT EXISTS osm_route_member_ref_idx ON osm_route_member ("ref");
 
-CREATE INDEX IF NOT EXISTS osm_route_member_network_type_idx ON osm_route_member ("network_type");
-
+-- Index for ID-Based Queries against osm_highway_linestring table
 CREATE INDEX IF NOT EXISTS osm_highway_linestring_osm_id_idx ON osm_highway_linestring ("osm_id");
-CREATE UNIQUE INDEX IF NOT EXISTS osm_highway_linestring_gen_z11_osm_id_idx ON osm_highway_linestring_gen_z11 ("osm_id");
 
 ALTER TABLE osm_route_member ADD COLUMN IF NOT EXISTS concurrency_index int,
                              ADD COLUMN IF NOT EXISTS rank int;
@@ -106,6 +121,10 @@ INSERT INTO osm_route_member (id, osm_id, concurrency_index, rank)
     END AS rank
   FROM osm_route_member
   ON CONFLICT (id, osm_id) DO UPDATE SET concurrency_index = EXCLUDED.concurrency_index, rank = EXCLUDED.rank;
+
+-- Indexes for filling and updating osm_route_member table
+CREATE INDEX IF NOT EXISTS osm_route_member_member_concurrency_index_idx
+    ON osm_route_member (member, concurrency_index);
 
 UPDATE osm_highway_linestring hl
   SET network = rm.network_type

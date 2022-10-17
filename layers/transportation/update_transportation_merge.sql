@@ -6,11 +6,21 @@ DROP TRIGGER IF EXISTS trigger_osm_transportation_merge_linestring_gen_z11 ON os
 DROP TRIGGER IF EXISTS trigger_store_transportation_highway_linestring_gen_z11 ON osm_highway_linestring_gen_z11;
 DROP TRIGGER IF EXISTS trigger_flag_transportation_z11 ON osm_highway_linestring_gen_z11;
 DROP TRIGGER IF EXISTS trigger_refresh_z11 ON transportation.updates_z11;
+DROP TRIGGER IF EXISTS trigger_store_transportation_name_network ON osm_transportation_name_network;
 
 -- Instead of using relations to find out the road names we
 -- stitch together the touching ways with the same name
 -- to allow for nice label rendering
 -- Because this works well for roads that do not have relations as well
+
+
+-- Indexes for filling and updating osm_transportation_name_network table
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_transportation_name_partial_idx
+    ON osm_highway_linestring (name, ref, highway)
+    WHERE (osm_highway_linestring.name <> '' OR osm_highway_linestring.ref <> '') AND
+          osm_highway_linestring.highway <> '';
+CREATE INDEX IF NOT EXISTS osm_route_member_name_idx ON osm_route_member ("name");
+CREATE INDEX IF NOT EXISTS osm_route_member_ref_idx ON osm_route_member ("ref");
 
 -- etldoc: osm_highway_linestring ->  osm_transportation_name_network
 -- etldoc: osm_route_member ->  osm_transportation_name_network
@@ -76,6 +86,8 @@ CREATE INDEX IF NOT EXISTS osm_highway_linestring_highway_partial_idx
     ON osm_highway_linestring (highway)
     WHERE highway IN ('motorway', 'trunk');
 
+END;
+$$ LANGUAGE plpgsql;
 
 -- etldoc: osm_highway_linestring_gen_z11 ->  osm_transportation_merge_linestring_gen_z11
 CREATE TABLE IF NOT EXISTS osm_transportation_merge_linestring_gen_z11(

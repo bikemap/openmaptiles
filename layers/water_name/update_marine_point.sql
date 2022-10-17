@@ -6,35 +6,55 @@ CREATE SCHEMA IF NOT EXISTS water_name_marine;
 
 CREATE TABLE IF NOT EXISTS water_name_marine.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 CREATE OR REPLACE FUNCTION update_osm_marine_point(full_update boolean) RETURNS void AS
 $$
+    BEGIN
     -- etldoc: ne_10m_geography_marine_polys -> osm_marine_point
     -- etldoc: osm_marine_point              -> osm_marine_point
 
-    WITH important_marine_point AS (
-        SELECT osm.osm_id, ne.scalerank
-        FROM osm_marine_point AS osm
-             LEFT JOIN ne_10m_geography_marine_polys AS ne ON
-              lower(trim(regexp_replace(ne.name, '\\s+', ' ', 'g'))) IN (lower(osm.name), lower(osm.tags->'name:en'), lower(osm.tags->'name:es'))
-           OR substring(lower(trim(regexp_replace(ne.name, '\\s+', ' ', 'g'))) FROM 1 FOR length(lower(osm.name))) = lower(osm.name)
-    )
+    CREATE TEMPORARY TABLE important_marine_point AS
+    SELECT osm.osm_id, ne.scalerank
+    FROM osm_marine_point AS osm
+         LEFT JOIN ne_10m_geography_marine_polys AS ne ON
+          lower(trim(regexp_replace(ne.name, '\\s+', ' ', 'g'))) IN (lower(osm.name), lower(osm.tags->'name:en'), lower(osm.tags->'name:es'))
+       OR substring(lower(trim(regexp_replace(ne.name, '\\s+', ' ', 'g'))) FROM 1 FOR length(lower(osm.name))) = lower(osm.name)
+    WHERE full_update OR EXISTS(
+        SELECT NULL
+        FROM water_name_marine.osm_ids
+        WHERE water_name_marine.osm_ids.osm_id = osm.osm_id
+    );
+
+    CREATE INDEX ON important_marine_point (osm_id);
+    CREATE INDEX ON important_marine_point (scalerank);
+
+    ANALYZE important_marine_point;
+
     UPDATE osm_marine_point AS osm
     SET "rank" = scalerank
     FROM important_marine_point AS ne
-    WHERE (full_update OR osm.osm_id IN (SELECT osm_id FROM water_name_marine.osm_ids))
-      AND osm.osm_id = ne.osm_id
-      AND "rank" IS DISTINCT FROM scalerank;
+    WHERE (full_update OR EXISTS(
+              SELECT NULL
+              FROM water_name_marine.osm_ids
+              WHERE water_name_marine.osm_ids.osm_id = osm.osm_id
+    ))
+    AND osm.osm_id = ne.osm_id
+    AND "rank" IS DISTINCT FROM scalerank;
 
-    UPDATE osm_marine_point
-    SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM water_name_marine.osm_ids))
-      AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
-      AND tags != update_tags(tags, geometry);
+    DROP TABLE important_marine_point;
 
-$$ LANGUAGE SQL;
+    UPDATE osm_marine_point AS osm
+    SET tags = update_tags(osm.tags, osm.geometry)
+    WHERE (full_update OR EXISTS(
+              SELECT NULL FROM water_name_marine.osm_ids WHERE water_name_marine.osm_ids.osm_id = osm.osm_id
+          ))
+          AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
+          AND tags != update_tags(tags, geometry);
+    END
+
+$$ LANGUAGE plpgsql;
 
 SELECT update_osm_marine_point(true);
 
@@ -45,11 +65,7 @@ CREATE INDEX IF NOT EXISTS osm_marine_point_rank_idx ON osm_marine_point ("rank"
 CREATE OR REPLACE FUNCTION water_name_marine.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO water_name_marine.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO water_name_marine.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO water_name_marine.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
@@ -74,6 +90,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh water_name_marine rank';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE water_name_marine.osm_ids;
+    ANALYZE osm_marine_point;
+
     PERFORM update_osm_marine_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM water_name_marine.osm_ids;
@@ -86,13 +107,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_store
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_marine_point
     FOR EACH ROW
 EXECUTE PROCEDURE water_name_marine.store();
 
 CREATE TRIGGER trigger_flag
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_marine_point
     FOR EACH STATEMENT
 EXECUTE PROCEDURE water_name_marine.flag();
