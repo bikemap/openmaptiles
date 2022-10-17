@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS osm_important_waterway_linestring_gen_z9
 (LIKE osm_important_waterway_linestring_gen_z10);
 
 -- Create OneToMany-Relation-Table storing relations of a Merged-LineString in table
--- osm_transportation_merge_linestring_gen_z11 to Source-LineStrings from table osm_highway_linestring_gen_z11
+-- osm_important_waterway_linestring to Source-LineStrings from table osm_waterway_linestring
 CREATE TABLE IF NOT EXISTS osm_important_waterway_linestring_source_ids(
     id int,
     source_id bigint,
