@@ -68,6 +68,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Indexes for queries originating from update_osm_poi_point() function
+CREATE INDEX IF NOT EXISTS osm_poi_point_osm_id_idx ON osm_poi_point (osm_id);
 CREATE INDEX IF NOT EXISTS osm_poi_point_station_subway_partial_idx ON osm_poi_point (station, subclass)
     WHERE station = 'subway' AND subclass = 'station';
 CREATE INDEX IF NOT EXISTS osm_poi_point_funicular_halt_partial_idx ON osm_poi_point (funicular, subclass)

@@ -74,6 +74,8 @@ $$ LANGUAGE plpgsql;
 
 SELECT update_osm_state_point(true);
 
+-- Indexes for queries originating from update_osm_state_point() function
+CREATE INDEX IF NOT EXISTS osm_state_point_osm_id_idx ON osm_state_point (osm_id);
 CREATE INDEX IF NOT EXISTS osm_state_point_rank_idx ON osm_state_point ("rank");
 
 -- Handle updates

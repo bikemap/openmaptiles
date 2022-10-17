@@ -28,6 +28,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Indexes for queries originating from update_waterway_linestring() function
+CREATE INDEX IF NOT EXISTS osm_waterway_linestring_osm_id_idx ON osm_waterway_linestring (osm_id);
+
 SELECT update_waterway_linestring(TRUE);
 
 -- Handle updates

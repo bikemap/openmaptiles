@@ -24,6 +24,9 @@ $$ LANGUAGE SQL;
 
 SELECT update_osm_continent_point(true);
 
+-- Indexes for queries originating from update_osm_country_point() function
+CREATE INDEX IF NOT EXISTS osm_continent_point_osm_id_idx ON osm_continent_point (osm_id);
+
 -- Handle updates
 
 CREATE OR REPLACE FUNCTION place_continent_point.store() RETURNS trigger AS

@@ -520,6 +520,7 @@ CREATE INDEX IF NOT EXISTS osm_important_waterway_linestring_source_ids_source_i
     ON osm_important_waterway_linestring_source_ids (source_id);
 CREATE INDEX IF NOT EXISTS osm_important_waterway_linestring_source_ids_id_idx
     ON osm_important_waterway_linestring_source_ids (id);
+CREATE INDEX IF NOT EXISTS osm_waterway_linestring_osm_id_idx ON osm_waterway_linestring (osm_id);
 
 CREATE TRIGGER trigger_important_waterway_linestring_store
     AFTER INSERT OR UPDATE OR DELETE

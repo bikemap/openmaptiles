@@ -58,6 +58,8 @@ $$ LANGUAGE plpgsql;
 
 SELECT update_osm_marine_point(true);
 
+-- Indexes for queries originating from update_osm_marine_point() function
+CREATE INDEX IF NOT EXISTS osm_marine_point_rank_idx ON osm_marine_point (osm_id);
 CREATE INDEX IF NOT EXISTS osm_marine_point_rank_idx ON osm_marine_point ("rank");
 
 -- Handle updates
