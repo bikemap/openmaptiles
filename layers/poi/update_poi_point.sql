@@ -75,6 +75,9 @@ CREATE INDEX IF NOT EXISTS osm_poi_point_funicular_halt_partial_idx ON osm_poi_p
 CREATE INDEX IF NOT EXISTS osm_poi_point_atm_name_partial_idx
     ON osm_poi_point (subclass, name, COALESCE(tags -> 'operator', tags -> 'network'))
     WHERE subclass = 'atm' AND name = '' AND COALESCE(tags -> 'operator', tags -> 'network') IS NOT NULL;
+CREATE INDEX IF NOT EXISTS osm_poi_point_parcel_locker_name_partial_idx
+    ON osm_poi_point (subclass, name, COALESCE(tags -> 'brand', tags -> 'operator'))
+    WHERE subclass = 'parcel_locker' AND name = '' AND COALESCE(tags -> 'brand', tags -> 'operator') IS NOT NULL;
 
 SELECT update_osm_poi_point(TRUE);
 
