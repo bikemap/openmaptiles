@@ -57,6 +57,9 @@ CREATE INDEX IF NOT EXISTS osm_poi_polygon_station_subway_partial_idx ON osm_poi
     WHERE station = 'subway' AND subclass = 'station';
 CREATE INDEX IF NOT EXISTS osm_poi_polygon_funicular_halt_partial_idx ON osm_poi_polygon (funicular, subclass)
     WHERE funicular = 'yes' AND subclass = 'station';
+CREATE INDEX IF NOT EXISTS osm_poi_polygon_update_partial_idx
+    ON osm_poi_polygon (ST_GeometryType(geometry), ST_IsValid(geometry))
+    WHERE ST_GeometryType(geometry) <> 'ST_Point' AND ST_IsValid(geometry);
 
 SELECT update_poi_polygon(true);
 
