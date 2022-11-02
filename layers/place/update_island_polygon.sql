@@ -14,13 +14,19 @@ CREATE OR REPLACE FUNCTION update_osm_island_polygon(full_update boolean) RETURN
 $$
     UPDATE osm_island_polygon
     SET geometry = ST_PointOnSurface(geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_island_polygon.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_island_polygon.osm_ids
+        WHERE place_island_polygon.osm_ids.osm_id = osm_island_polygon.osm_id
+      ))
       AND ST_GeometryType(geometry) <> 'ST_Point'
       AND ST_IsValid(geometry);
 
     UPDATE osm_island_polygon
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_island_polygon.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_island_polygon.osm_ids
+        WHERE place_island_polygon.osm_ids.osm_id = osm_island_polygon.osm_id
+      ))
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 

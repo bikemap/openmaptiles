@@ -14,7 +14,10 @@ CREATE OR REPLACE FUNCTION update_osm_mountain_linestring(full_update boolean) R
 $$
     UPDATE osm_mountain_linestring
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM mountain_linestring.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM mountain_linestring.osm_ids
+        WHERE mountain_linestring.osm_ids.osm_id = osm_mountain_linestring.osm_id
+      ))
       AND COALESCE(tags -> 'name:latin', tags -> 'name:nonlatin', tags -> 'name_int') IS NULL
       AND tags != update_tags(tags, geometry)
 $$ LANGUAGE SQL;

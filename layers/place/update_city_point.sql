@@ -35,13 +35,19 @@ $$
         -- are in the scalerank 5 bucket
     SET "rank" = CASE WHEN scalerank <= 5 THEN scalerank + 1 ELSE scalerank END
     FROM important_city_point AS ne
-    WHERE (full_update OR osm.osm_id IN (SELECT osm_id FROM place_city.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_city.osm_ids
+        WHERE place_city.osm_ids.osm_id = osm.osm_id
+      ))
       AND rank IS DISTINCT FROM CASE WHEN scalerank <= 5 THEN scalerank + 1 ELSE scalerank END
       AND osm.osm_id = ne.osm_id;
 
     UPDATE osm_city_point
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_city.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_city.osm_ids
+        WHERE place_city.osm_ids.osm_id = osm_city_point.osm_id
+      ))
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 

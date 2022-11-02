@@ -20,12 +20,18 @@ CREATE OR REPLACE FUNCTION update_aerodrome_label_point(full_update boolean) RET
 $$
     UPDATE osm_aerodrome_label_point
     SET geometry = ST_Centroid(geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM aerodrome_label.osm_ids))
+    WHERE (full_update OR EXISTS(
+          SELECT NULL FROM aerodrome_label.osm_ids
+          WHERE osm_ids.osm_id = osm_aerodrome_label_point.osm_id
+        ))
         AND ST_GeometryType(geometry) <> 'ST_Point';
 
     UPDATE osm_aerodrome_label_point
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM aerodrome_label.osm_ids))
+    WHERE (full_update OR EXISTS(
+          SELECT NULL FROM aerodrome_label.osm_ids
+          WHERE osm_ids.osm_id = osm_aerodrome_label_point.osm_id
+        ))
         AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
         AND tags != update_tags(tags, geometry);
 
@@ -34,7 +40,10 @@ $$
        CASE
 	    %%FIELD_MAPPING: class %%
 	    ELSE 'other' END
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM aerodrome_label.osm_ids))
+    WHERE (full_update OR EXISTS(
+      SELECT NULL FROM aerodrome_label.osm_ids
+      WHERE osm_ids.osm_id = osm_aerodrome_label_point.osm_id
+    ))
     AND aerodrome_type !=
        CASE
 	    %%FIELD_MAPPING: class %%

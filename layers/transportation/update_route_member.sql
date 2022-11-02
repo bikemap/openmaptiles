@@ -72,8 +72,11 @@ BEGIN
            WHEN osmc_symbol || colour <> '' THEN 2
       END AS rank
     FROM osm_route_member rm
-    WHERE rm.member IN
-      (SELECT DISTINCT osm_id FROM transportation_name.network_changes)
+    WHERE EXISTS(
+        SELECT NULL
+        FROM transportation_name.network_changes
+        WHERE transportation_name.network_changes.osm_id = rm.member
+    )
     ON CONFLICT (id, osm_id) DO UPDATE SET concurrency_index = EXCLUDED.concurrency_index,
                                            rank = EXCLUDED.rank,
                                            network_type = EXCLUDED.network_type;

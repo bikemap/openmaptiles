@@ -21,7 +21,10 @@ $$
                 NULLIF(osm.iso3166_1_alpha_2, ''),
                 NULLIF(osm.iso3166_1, '')
             )
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_country.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_country.osm_ids
+        WHERE place_country.osm_ids.osm_id = osm.osm_id
+      ))
       AND rank IS NULL;
 
     WITH important_country_point AS (
@@ -44,7 +47,10 @@ $$
         -- where the ranks are still distributed uniform enough across all countries
     SET "rank" = LEAST(6, CEILING((scalerank + labelrank) / 2.0))
     FROM important_country_point AS ne
-    WHERE (full_update OR osm.osm_id IN (SELECT osm_id FROM place_country.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_country.osm_ids
+        WHERE place_country.osm_ids.osm_id = osm.osm_id
+      ))
       AND rank = 7
       AND osm.osm_id = ne.osm_id;
 
@@ -72,25 +78,37 @@ $$
         -- where the ranks are still distributed uniform enough across all countries
     SET "rank" = LEAST(6, CEILING((ne.scalerank + ne.labelrank) / 2.0))
     FROM important_country_point AS ne
-    WHERE (full_update OR osm.osm_id IN (SELECT osm_id FROM place_country.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_country.osm_ids
+        WHERE place_country.osm_ids.osm_id = osm.osm_id
+      ))
       AND rank = 7
       AND osm.osm_id = ne.osm_id
       AND ne.rk = 1;
 
     UPDATE osm_country_point AS osm
     SET "rank" = 6
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_country.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_country.osm_ids
+        WHERE place_country.osm_ids.osm_id = osm.osm_id
+      ))
       AND "rank" = 7;
 
     -- TODO: This shouldn't be necessary? The rank function makes something wrong...
     UPDATE osm_country_point AS osm
     SET "rank" = 1
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_country.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_country.osm_ids
+        WHERE place_country.osm_ids.osm_id = osm.osm_id
+      ))
       AND "rank" = 0;
 
     UPDATE osm_country_point
     SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM place_country.osm_ids))
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_country.osm_ids
+        WHERE place_country.osm_ids.osm_id = osm_country_point.osm_id
+      ))
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 

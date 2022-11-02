@@ -24,15 +24,21 @@ $$
     UPDATE osm_marine_point AS osm
     SET "rank" = scalerank
     FROM important_marine_point AS ne
-    WHERE (full_update OR osm.osm_id IN (SELECT osm_id FROM water_name_marine.osm_ids))
-      AND osm.osm_id = ne.osm_id
-      AND "rank" IS DISTINCT FROM scalerank;
+    WHERE (full_update OR EXISTS(
+              SELECT NULL
+              FROM water_name_marine.osm_ids
+              WHERE water_name_marine.osm_ids.osm_id = osm.osm_id
+    ))
+    AND osm.osm_id = ne.osm_id
+    AND "rank" IS DISTINCT FROM scalerank;
 
-    UPDATE osm_marine_point
-    SET tags = update_tags(tags, geometry)
-    WHERE (full_update OR osm_id IN (SELECT osm_id FROM water_name_marine.osm_ids))
-      AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
-      AND tags != update_tags(tags, geometry);
+    UPDATE osm_marine_point AS osm
+    SET tags = update_tags(osm.tags, osm.geometry)
+    WHERE (full_update OR EXISTS(
+              SELECT NULL FROM water_name_marine.osm_ids WHERE water_name_marine.osm_ids.osm_id = osm.osm_id
+          ))
+          AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
+          AND tags != update_tags(tags, geometry);
 
 $$ LANGUAGE SQL;
 
