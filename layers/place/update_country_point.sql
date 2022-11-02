@@ -130,6 +130,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh place_country rank';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE place_country.osm_ids;
+    ANALYZE osm_country_point;
+
     PERFORM update_osm_country_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM place_country.osm_ids;

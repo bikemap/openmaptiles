@@ -248,6 +248,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh transportation_name_network';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE transportation_name.network_changes;
+    ANALYZE osm_highway_linestring;
+
     PERFORM update_osm_route_member();
 
     -- REFRESH osm_transportation_name_network

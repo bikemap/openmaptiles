@@ -56,6 +56,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh housenumber';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE housenumber.osm_ids;
+    ANALYZE osm_housenumber_point;
+
     PERFORM convert_housenumber_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM housenumber.osm_ids;

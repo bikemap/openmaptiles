@@ -51,6 +51,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh mountain_linestring';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE mountain_linestring.osm_ids;
+    ANALYZE osm_mountain_linestring;
+
     PERFORM update_osm_mountain_linestring(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM mountain_linestring.osm_ids;

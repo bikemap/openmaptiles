@@ -73,6 +73,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh aerodrome_label';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE aerodrome_label.osm_ids;
+    ANALYZE osm_aerodrome_label_point;
+
     PERFORM update_aerodrome_label_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM aerodrome_label.osm_ids;
