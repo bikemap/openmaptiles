@@ -69,6 +69,12 @@ $$ LANGUAGE plpgsql;
 
 -- Indexes for queries originating from update_osm_poi_point() function
 CREATE INDEX IF NOT EXISTS osm_poi_point_osm_id_idx ON osm_poi_point (osm_id);
+CREATE INDEX IF NOT EXISTS osm_poi_point_station_subway_update_idx ON osm_poi_point (station, subclass);
+CREATE INDEX IF NOT EXISTS osm_poi_point_funicular_halt_update_idx ON osm_poi_point (funicular, subclass);
+CREATE INDEX IF NOT EXISTS osm_poi_point_atm_name_update_idx
+    ON osm_poi_point (subclass, name, COALESCE(tags -> 'operator', tags -> 'network'));
+CREATE INDEX IF NOT EXISTS osm_poi_point_parcel_locker_name_update_idx
+    ON osm_poi_point (subclass, name, COALESCE(tags -> 'brand', tags -> 'operator'));
 
 SELECT update_osm_poi_point(TRUE);
 
@@ -110,6 +116,7 @@ $$ LANGUAGE plpgsql;
 
 -- Indexes for queries originating from update_osm_poi_point_agg function
 CREATE INDEX osm_poi_stop_rank_osm_id_idx ON osm_poi_stop_rank (osm_id);
+CREATE INDEX IF NOT EXISTS osm_poi_stop_rank_rk_idx ON osm_poi_stop_rank (rk);
 
 ALTER TABLE osm_poi_point
     ADD COLUMN IF NOT EXISTS agg_stop integer DEFAULT NULL;

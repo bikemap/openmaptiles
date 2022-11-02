@@ -31,6 +31,8 @@ SELECT convert_housenumber_point(true);
 
 -- Indexes for queries originating from convert_housenumber_point() function
 CREATE INDEX IF NOT EXISTS osm_housenumber_point_osm_id_idx ON osm_housenumber_point (osm_id);
+CREATE INDEX IF NOT EXISTS osm_housenumber_point_update_idx
+    ON osm_housenumber_point (ST_GeometryType(geometry), ST_IsValid(geometry));
 
 -- Handle updates
 

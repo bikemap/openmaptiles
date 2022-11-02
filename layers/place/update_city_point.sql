@@ -53,6 +53,9 @@ $$
 
 $$ LANGUAGE SQL;
 
+-- Indexes for queries originating from update_osm_city_point() function
+CREATE INDEX IF NOT EXISTS osm_city_point_place_update_idx ON osm_city_point ("place");
+
 SELECT update_osm_city_point(true);
 
 -- Indexes for queries originating from update_osm_city_point() function

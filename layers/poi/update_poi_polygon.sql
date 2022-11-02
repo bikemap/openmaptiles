@@ -54,6 +54,10 @@ $$ LANGUAGE SQL;
 
 -- Indexes for queries originating from update_poi_polygon() function
 CREATE INDEX IF NOT EXISTS osm_poi_polygon_osm_id_idx ON osm_poi_polygon (osm_id);
+CREATE INDEX IF NOT EXISTS osm_poi_polygon_station_subway_update_idx ON osm_poi_polygon (station, subclass);
+CREATE INDEX IF NOT EXISTS osm_poi_polygon_funicular_halt_update_idx ON osm_poi_polygon (funicular, subclass);
+CREATE INDEX IF NOT EXISTS osm_poi_polygon_update_idx
+    ON osm_poi_polygon (ST_GeometryType(geometry), ST_IsValid(geometry));
 
 SELECT update_poi_polygon(true);
 
