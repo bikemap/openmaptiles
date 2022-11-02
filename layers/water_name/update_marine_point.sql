@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS water_name_marine;
 
 CREATE TABLE IF NOT EXISTS water_name_marine.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 CREATE OR REPLACE FUNCTION update_osm_marine_point(full_update boolean) RETURNS void AS
@@ -45,11 +45,7 @@ CREATE INDEX IF NOT EXISTS osm_marine_point_rank_idx ON osm_marine_point ("rank"
 CREATE OR REPLACE FUNCTION water_name_marine.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO water_name_marine.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO water_name_marine.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO water_name_marine.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;

@@ -8,7 +8,7 @@ CREATE SCHEMA IF NOT EXISTS place_city;
 
 CREATE TABLE IF NOT EXISTS place_city.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 CREATE OR REPLACE FUNCTION update_osm_city_point(full_update boolean) RETURNS void AS
@@ -56,11 +56,7 @@ CREATE INDEX IF NOT EXISTS osm_city_point_rank_idx ON osm_city_point ("rank");
 CREATE OR REPLACE FUNCTION place_city.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO place_city.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO place_city.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO place_city.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;

@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS housenumber;
 
 CREATE TABLE IF NOT EXISTS housenumber.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc: osm_housenumber_point -> osm_housenumber_point
@@ -41,11 +41,7 @@ SELECT convert_housenumber_point(true);
 CREATE OR REPLACE FUNCTION housenumber.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO housenumber.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO housenumber.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO housenumber.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;

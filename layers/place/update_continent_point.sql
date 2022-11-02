@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS place_continent_point;
 
 CREATE TABLE IF NOT EXISTS place_continent_point.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc:  osm_continent_point ->  osm_continent_point
@@ -26,11 +26,7 @@ SELECT update_osm_continent_point(true);
 CREATE OR REPLACE FUNCTION place_continent_point.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO place_continent_point.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO place_continent_point.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO place_continent_point.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;

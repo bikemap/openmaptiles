@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS poi_polygon;
 
 CREATE TABLE IF NOT EXISTS poi_polygon.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc:  osm_poi_polygon ->  osm_poi_polygon
@@ -51,11 +51,7 @@ SELECT update_poi_polygon(true);
 CREATE OR REPLACE FUNCTION poi_polygon.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO poi_polygon.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO poi_polygon.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO poi_polygon.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
