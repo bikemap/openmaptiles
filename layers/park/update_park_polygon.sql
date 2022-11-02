@@ -48,16 +48,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS osm_park_polygon_dissolve_idx ON osm_park_poly
 
 
 -- etldoc:  osm_park_polygon ->  osm_park_polygon
--- etldoc:  osm_park_polygon_gen_z13 ->  osm_park_polygon_gen_z13
--- etldoc:  osm_park_polygon_gen_z12 ->  osm_park_polygon_gen_z12
--- etldoc:  osm_park_polygon_gen_z11 ->  osm_park_polygon_gen_z11
--- etldoc:  osm_park_polygon_gen_z10 ->  osm_park_polygon_gen_z10
--- etldoc:  osm_park_polygon_gen_z9 ->  osm_park_polygon_gen_z9
--- etldoc:  osm_park_polygon_gen_z8 ->  osm_park_polygon_gen_z8
--- etldoc:  osm_park_polygon_gen_z7 ->  osm_park_polygon_gen_z7
--- etldoc:  osm_park_polygon_gen_z6 ->  osm_park_polygon_gen_z6
--- etldoc:  osm_park_polygon_gen_z5 ->  osm_park_polygon_gen_z5
--- etldoc:  osm_park_polygon_gen_z4 ->  osm_park_polygon_gen_z4
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z13
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z12
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z11
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z10
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z9
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z8
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z7
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z6
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z5
+-- etldoc:  osm_park_polygon ->  osm_park_polygon_gen_z4
 CREATE OR REPLACE FUNCTION update_osm_park_polygon(full_update bool) RETURNS void AS
 $$
 BEGIN
