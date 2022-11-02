@@ -84,6 +84,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh poi_polygon';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE poi_polygon.osm_ids;
+    ANALYZE osm_poi_polygon;
+
     PERFORM update_poi_polygon(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM poi_polygon.osm_ids;

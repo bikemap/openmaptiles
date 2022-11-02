@@ -54,6 +54,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh mountain_peak_point';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE mountain_peak_point.osm_ids;
+    ANALYZE osm_peak_point;
+
     PERFORM update_osm_peak_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM mountain_peak_point.osm_ids;

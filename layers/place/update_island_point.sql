@@ -54,6 +54,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh place_island_point';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE place_island_point.osm_ids;
+    ANALYZE osm_island_point;
+
     PERFORM update_osm_island_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM place_island_point.osm_ids;
