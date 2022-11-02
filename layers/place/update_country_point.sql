@@ -116,6 +116,8 @@ $$ LANGUAGE SQL;
 
 SELECT update_osm_country_point(true);
 
+-- Indexes for queries originating from update_osm_country_point() function
+CREATE INDEX IF NOT EXISTS osm_country_point_osm_id_idx ON osm_country_point (osm_id);
 CREATE INDEX IF NOT EXISTS osm_country_point_rank_idx ON osm_country_point ("rank");
 
 -- Handle updates

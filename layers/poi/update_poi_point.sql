@@ -67,6 +67,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Indexes for queries originating from update_osm_poi_point() function
+CREATE INDEX IF NOT EXISTS osm_poi_point_osm_id_idx ON osm_poi_point (osm_id);
+
 SELECT update_osm_poi_point(TRUE);
 
 -- etldoc:  osm_poi_stop_rank ->  osm_poi_point
@@ -104,6 +107,9 @@ BEGIN
 
 END;
 $$ LANGUAGE plpgsql;
+
+-- Indexes for queries originating from update_osm_poi_point_agg function
+CREATE INDEX osm_poi_stop_rank_osm_id_idx ON osm_poi_stop_rank (osm_id);
 
 ALTER TABLE osm_poi_point
     ADD COLUMN IF NOT EXISTS agg_stop integer DEFAULT NULL;

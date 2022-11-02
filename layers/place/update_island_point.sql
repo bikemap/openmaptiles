@@ -24,6 +24,9 @@ $$ LANGUAGE SQL;
 
 SELECT update_osm_island_point(true);
 
+-- Indexes for queries originating from update_osm_island_point() function
+CREATE INDEX IF NOT EXISTS osm_island_point_osm_id_idx ON osm_island_point (osm_id);
+
 -- Handle updates
 
 CREATE OR REPLACE FUNCTION place_island_point.store() RETURNS trigger AS

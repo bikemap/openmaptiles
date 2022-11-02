@@ -34,6 +34,9 @@ $$ LANGUAGE SQL;
 
 SELECT update_osm_island_polygon(true);
 
+-- Indexes for queries originating from update_osm_island_polygon() function
+CREATE INDEX IF NOT EXISTS osm_island_polygon_osm_id_idx ON osm_island_polygon (osm_id);
+
 -- Handle updates
 
 CREATE OR REPLACE FUNCTION place_island_polygon.store() RETURNS trigger AS

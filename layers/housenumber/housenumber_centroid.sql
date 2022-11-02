@@ -29,6 +29,9 @@ $$ LANGUAGE SQL;
 
 SELECT convert_housenumber_point(true);
 
+-- Indexes for queries originating from convert_housenumber_point() function
+CREATE INDEX IF NOT EXISTS osm_housenumber_point_osm_id_idx ON osm_housenumber_point (osm_id);
+
 -- Handle updates
 
 CREATE OR REPLACE FUNCTION housenumber.store() RETURNS trigger AS
