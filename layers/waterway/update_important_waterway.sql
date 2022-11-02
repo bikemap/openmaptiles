@@ -529,9 +529,21 @@ CREATE TRIGGER trigger_store
     FOR EACH ROW
 EXECUTE PROCEDURE waterway_important.store();
 
-CREATE TRIGGER trigger_flag
-    AFTER INSERT OR UPDATE OR DELETE
+-- waterway_important.refresh depends on waterway_linestring.refresh which will be triggered by INSERT and UPDATE
+-- operations to the osm_waterway_linestring table and waterway_linestring.refresh in turn will trigger
+-- waterway_important.refresh. (see below)
+CREATE TRIGGER trigger_flag_from_delete
+    AFTER DELETE
     ON osm_waterway_linestring
+    FOR EACH STATEMENT
+EXECUTE PROCEDURE waterway_important.flag();
+
+-- waterway_important.refresh depends on waterway_linestring.refresh which will which will be triggered by INSERT and
+-- UPDATE operations to the osm_waterway_linestring table and executes a DELETE operation on
+-- waterway_linestring.updates as its last step.
+CREATE TRIGGER trigger_flag_from_update_insert
+    AFTER DELETE
+    ON waterway_linestring.updates
     FOR EACH STATEMENT
 EXECUTE PROCEDURE waterway_important.flag();
 
