@@ -90,15 +90,12 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE INDEX IF NOT EXISTS osm_route_member_network_idx ON osm_route_member ("network");
+-- Indexes for ID-Based queries against osm_route_member table
+CREATE INDEX IF NOT EXISTS osm_route_member_osm_id_idx ON osm_route_member ("osm_id");
 CREATE INDEX IF NOT EXISTS osm_route_member_member_idx ON osm_route_member ("member");
-CREATE INDEX IF NOT EXISTS osm_route_member_name_idx ON osm_route_member ("name");
-CREATE INDEX IF NOT EXISTS osm_route_member_ref_idx ON osm_route_member ("ref");
 
-CREATE INDEX IF NOT EXISTS osm_route_member_network_type_idx ON osm_route_member ("network_type");
-
+-- Index for ID-Based Queries against osm_highway_linestring table
 CREATE INDEX IF NOT EXISTS osm_highway_linestring_osm_id_idx ON osm_highway_linestring ("osm_id");
-CREATE UNIQUE INDEX IF NOT EXISTS osm_highway_linestring_gen_z11_osm_id_idx ON osm_highway_linestring_gen_z11 ("osm_id");
 
 ALTER TABLE osm_route_member ADD COLUMN IF NOT EXISTS concurrency_index int,
                              ADD COLUMN IF NOT EXISTS rank int;
@@ -116,6 +113,10 @@ INSERT INTO osm_route_member (id, osm_id, concurrency_index, rank)
     END AS rank
   FROM osm_route_member
   ON CONFLICT (id, osm_id) DO UPDATE SET concurrency_index = EXCLUDED.concurrency_index, rank = EXCLUDED.rank;
+
+-- Indexes for filling and updating osm_route_member table
+CREATE INDEX IF NOT EXISTS osm_route_member_member_concurrency_index_idx
+    ON osm_route_member (member, concurrency_index);
 
 UPDATE osm_highway_linestring hl
   SET network = rm.network_type

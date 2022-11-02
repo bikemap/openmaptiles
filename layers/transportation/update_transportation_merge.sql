@@ -13,6 +13,12 @@ DROP TRIGGER IF EXISTS trigger_store_transportation_name_network ON osm_transpor
 -- to allow for nice label rendering
 -- Because this works well for roads that do not have relations as well
 
+
+-- Indexes for filling and updating osm_transportation_name_network table
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_highway_idx ON osm_highway_linestring (highway);
+CREATE INDEX IF NOT EXISTS osm_route_member_name_idx ON osm_route_member ("name");
+CREATE INDEX IF NOT EXISTS osm_route_member_ref_idx ON osm_route_member ("ref");
+
 -- etldoc: osm_highway_linestring ->  osm_transportation_name_network
 -- etldoc: osm_route_member ->  osm_transportation_name_network
 CREATE TABLE IF NOT EXISTS osm_transportation_name_network AS
