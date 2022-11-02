@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS place_country.osm_ids
 
 CREATE OR REPLACE FUNCTION update_osm_country_point(full_update boolean) RETURNS void AS
 $$
+BEGIN
+
     UPDATE osm_country_point AS osm
     SET "rank"            = 7,
         iso3166_1_alpha_2 = COALESCE(
@@ -27,21 +29,27 @@ $$
       ))
       AND rank IS NULL;
 
-    WITH important_country_point AS (
-        SELECT osm.geometry,
-               osm.osm_id,
-               osm.name,
-               COALESCE(NULLIF(osm.name_en, ''), ne.name) AS name_en,
-               ne.scalerank,
-               ne.labelrank
-        FROM ne_10m_admin_0_countries AS ne,
-             osm_country_point AS osm
-        WHERE
-          -- We match only countries with ISO codes to eliminate disputed countries
-            iso3166_1_alpha_2 IS NOT NULL
-          -- that lies inside polygon of sovereign country
-          AND ST_Within(osm.geometry, ne.geometry)
-    )
+    CREATE TEMPORARY TABLE important_country_point AS
+    SELECT osm.geometry,
+           osm.osm_id,
+           osm.name,
+           COALESCE(NULLIF(osm.name_en, ''), ne.name) AS name_en,
+           ne.scalerank,
+           ne.labelrank
+    FROM ne_10m_admin_0_countries AS ne,
+         osm_country_point AS osm
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_country.osm_ids
+        WHERE place_country.osm_ids.osm_id = osm.osm_id
+      ))
+      -- We match only countries with ISO codes to eliminate disputed countries
+      AND iso3166_1_alpha_2 IS NOT NULL
+      -- that lies inside polygon of sovereign country
+      AND ST_Within(osm.geometry, ne.geometry);
+
+    CREATE INDEX ON important_country_point (osm_id);
+    ANALYZE important_country_point;
+
     UPDATE osm_country_point AS osm
         -- Normalize both scalerank and labelrank into a ranking system from 1 to 6
         -- where the ranks are still distributed uniform enough across all countries
@@ -54,25 +62,35 @@ $$
       AND rank = 7
       AND osm.osm_id = ne.osm_id;
 
+    DROP TABLE important_country_point;
+
     -- Repeat the step for archipelago countries like Philippines or Indonesia
     -- whose label point is not within country's polygon
-    WITH important_country_point AS (
-        SELECT osm.osm_id,
+    CREATE TEMPORARY TABLE important_archipelago_country_point AS
+    SELECT osm.osm_id,
 --       osm.name,
-               ne.scalerank,
-               ne.labelrank,
+           ne.scalerank,
+           ne.labelrank,
 --       ST_Distance(osm.geometry, ne.geometry) AS distance,
-               ROW_NUMBER()
-               OVER (
-                   PARTITION BY osm.osm_id
-                   ORDER BY
-                       ST_Distance(osm.geometry, ne.geometry)
-                   ) AS rk
-        FROM osm_country_point osm,
-             ne_10m_admin_0_countries AS ne
-        WHERE iso3166_1_alpha_2 IS NOT NULL
-          AND NOT (osm."rank" BETWEEN 1 AND 6)
-    )
+           ROW_NUMBER()
+           OVER (
+               PARTITION BY osm.osm_id
+               ORDER BY
+                   ST_Distance(osm.geometry, ne.geometry)
+               ) AS rk
+    FROM osm_country_point osm,
+         ne_10m_admin_0_countries AS ne
+    WHERE (full_update OR EXISTS(
+        SELECT NULL FROM place_country.osm_ids
+        WHERE place_country.osm_ids.osm_id = osm.osm_id
+      )) AND iso3166_1_alpha_2 IS NOT NULL
+      AND NOT (osm."rank" BETWEEN 1 AND 6);
+
+    CREATE INDEX ON important_archipelago_country_point (osm_id);
+    CREATE INDEX ON important_archipelago_country_point (rk);
+
+    ANALYZE important_archipelago_country_point;
+
     UPDATE osm_country_point AS osm
         -- Normalize both scalerank and labelrank into a ranking system from 1 to 6
         -- where the ranks are still distributed uniform enough across all countries
@@ -85,6 +103,8 @@ $$
       AND rank = 7
       AND osm.osm_id = ne.osm_id
       AND ne.rk = 1;
+
+    DROP TABLE important_archipelago_country_point;
 
     UPDATE osm_country_point AS osm
     SET "rank" = 6
@@ -112,7 +132,8 @@ $$
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 
-$$ LANGUAGE SQL;
+END;
+$$ LANGUAGE plpgsql;
 
 SELECT update_osm_country_point(true);
 

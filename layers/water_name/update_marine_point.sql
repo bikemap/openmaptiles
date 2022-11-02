@@ -11,16 +11,27 @@ CREATE TABLE IF NOT EXISTS water_name_marine.osm_ids
 
 CREATE OR REPLACE FUNCTION update_osm_marine_point(full_update boolean) RETURNS void AS
 $$
+    BEGIN
     -- etldoc: ne_10m_geography_marine_polys -> osm_marine_point
     -- etldoc: osm_marine_point              -> osm_marine_point
 
-    WITH important_marine_point AS (
-        SELECT osm.osm_id, ne.scalerank
-        FROM osm_marine_point AS osm
-             LEFT JOIN ne_10m_geography_marine_polys AS ne ON
-              lower(trim(regexp_replace(ne.name, '\\s+', ' ', 'g'))) IN (lower(osm.name), lower(osm.tags->'name:en'), lower(osm.tags->'name:es'))
-           OR substring(lower(trim(regexp_replace(ne.name, '\\s+', ' ', 'g'))) FROM 1 FOR length(lower(osm.name))) = lower(osm.name)
-    )
+    CREATE TEMPORARY TABLE important_marine_point AS
+    SELECT osm.osm_id, ne.scalerank
+    FROM osm_marine_point AS osm
+         LEFT JOIN ne_10m_geography_marine_polys AS ne ON
+          lower(trim(regexp_replace(ne.name, '\\s+', ' ', 'g'))) IN (lower(osm.name), lower(osm.tags->'name:en'), lower(osm.tags->'name:es'))
+       OR substring(lower(trim(regexp_replace(ne.name, '\\s+', ' ', 'g'))) FROM 1 FOR length(lower(osm.name))) = lower(osm.name)
+    WHERE full_update OR EXISTS(
+        SELECT NULL
+        FROM water_name_marine.osm_ids
+        WHERE water_name_marine.osm_ids.osm_id = osm.osm_id
+    );
+
+    CREATE INDEX ON important_marine_point (osm_id);
+    CREATE INDEX ON important_marine_point (scalerank);
+
+    ANALYZE important_marine_point;
+
     UPDATE osm_marine_point AS osm
     SET "rank" = scalerank
     FROM important_marine_point AS ne
@@ -40,7 +51,7 @@ $$
           AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
           AND tags != update_tags(tags, geometry);
 
-$$ LANGUAGE SQL;
+$$ LANGUAGE plpgsql;
 
 SELECT update_osm_marine_point(true);
 

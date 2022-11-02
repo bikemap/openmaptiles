@@ -13,23 +13,35 @@ CREATE TABLE IF NOT EXISTS place_city.osm_ids
 
 CREATE OR REPLACE FUNCTION update_osm_city_point(full_update boolean) RETURNS void AS
 $$
+    BEGIN
+
     -- etldoc: ne_10m_populated_places -> osm_city_point
     -- etldoc: osm_city_point          -> osm_city_point
+    CREATE TEMPORARY TABLE important_city_point AS
+    SELECT osm.osm_id, ne.scalerank
+    FROM osm_city_point AS osm
+         -- Clear OSM key:rank ( https://github.com/openmaptiles/openmaptiles/issues/108 )
+         LEFT JOIN ne_10m_populated_places AS ne ON
+        (
+            (osm.tags ? 'wikidata' AND osm.tags->'wikidata' = ne.wikidataid) OR
+            lower(osm.name) IN (
+                lower(ne.name), lower(ne.namealt), lower(ne.meganame), lower(ne.name_en), lower(ne.nameascii)
+            ) OR
+            lower(osm.name_en) IN (
+                lower(ne.name), lower(ne.namealt), lower(ne.meganame), lower(ne.name_en), lower(ne.nameascii)
+            ) OR
+            ne.name = unaccent(osm.name)
+        )
+      AND osm.place IN ('city', 'town', 'village')
+      AND ST_DWithin(ne.geometry, osm.geometry, 50000)
+    WHERE full_update OR EXISTS(
+        SELECT NULL FROM place_city.osm_ids
+        WHERE place_city.osm_ids.osm_id = osm.osm_id
+    );
 
-    WITH important_city_point AS (
-        SELECT osm.osm_id, ne.scalerank
-        FROM osm_city_point AS osm
-             -- Clear OSM key:rank ( https://github.com/openmaptiles/openmaptiles/issues/108 )
-             LEFT JOIN ne_10m_populated_places AS ne ON
-            (
-                (osm.tags ? 'wikidata' AND osm.tags->'wikidata' = ne.wikidataid) OR
-                lower(osm.name) IN (lower(ne.name), lower(ne.namealt), lower(ne.meganame), lower(ne.name_en), lower(ne.nameascii)) OR
-                lower(osm.name_en) IN (lower(ne.name), lower(ne.namealt), lower(ne.meganame), lower(ne.name_en), lower(ne.nameascii)) OR
-                ne.name = unaccent(osm.name)
-            )
-          AND osm.place IN ('city', 'town', 'village')
-          AND ST_DWithin(ne.geometry, osm.geometry, 50000)
-    )
+    CREATE INDEX ON important_city_point (osm_id);
+    ANALYZE important_city_point;
+
     UPDATE osm_city_point AS osm
         -- Move scalerank to range 1 to 10 and merge scalerank 5 with 6 since not enough cities
         -- are in the scalerank 5 bucket
@@ -42,6 +54,8 @@ $$
       AND rank IS DISTINCT FROM CASE WHEN scalerank <= 5 THEN scalerank + 1 ELSE scalerank END
       AND osm.osm_id = ne.osm_id;
 
+    DROP TABLE important_city_point;
+
     UPDATE osm_city_point
     SET tags = update_tags(tags, geometry)
     WHERE (full_update OR EXISTS(
@@ -51,7 +65,8 @@ $$
       AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 
-$$ LANGUAGE SQL;
+    END;
+$$ LANGUAGE plpgsql;
 
 SELECT update_osm_city_point(true);
 
