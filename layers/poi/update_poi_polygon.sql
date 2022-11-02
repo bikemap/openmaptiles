@@ -44,6 +44,9 @@ $$
 
 $$ LANGUAGE SQL;
 
+-- Indexes for queries originating from update_poi_polygon() function
+CREATE INDEX IF NOT EXISTS osm_poi_polygon_osm_id_idx ON osm_poi_polygon (osm_id);
+
 SELECT update_poi_polygon(true);
 
 -- Handle updates

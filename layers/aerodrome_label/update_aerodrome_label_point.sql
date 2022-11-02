@@ -43,6 +43,9 @@ $$ LANGUAGE SQL;
 
 SELECT update_aerodrome_label_point(true);
 
+-- Indexes for queries originating from update_aerodrome_label_point() function
+CREATE INDEX IF NOT EXISTS osm_aerodrome_label_point_osm_id_idx ON osm_aerodrome_label_point (osm_id);
+
 -- Handle updates
 
 CREATE OR REPLACE FUNCTION aerodrome_label.store() RETURNS trigger AS
