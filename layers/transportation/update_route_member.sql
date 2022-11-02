@@ -1,3 +1,5 @@
+DROP TRIGGER IF EXISTS trigger_store_transportation_highway_linestring ON osm_highway_linestring;
+
 CREATE TABLE IF NOT EXISTS ne_10m_admin_0_bg_buffer AS
 SELECT ST_Buffer(geometry, 10000)
 FROM ne_10m_admin_0_countries
