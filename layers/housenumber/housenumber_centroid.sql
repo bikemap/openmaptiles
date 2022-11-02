@@ -78,13 +78,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_store
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_housenumber_point
     FOR EACH ROW
 EXECUTE PROCEDURE housenumber.store();
 
 CREATE TRIGGER trigger_flag
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_housenumber_point
     FOR EACH STATEMENT
 EXECUTE PROCEDURE housenumber.flag();

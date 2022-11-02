@@ -63,13 +63,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_store
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_peak_point
     FOR EACH ROW
 EXECUTE PROCEDURE mountain_peak_point.store();
 
 CREATE TRIGGER trigger_flag
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_peak_point
     FOR EACH STATEMENT
 EXECUTE PROCEDURE mountain_peak_point.flag();
