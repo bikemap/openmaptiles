@@ -1,3 +1,5 @@
+DROP TRIGGER IF EXISTS trigger_store_transportation_highway_linestring ON osm_highway_linestring;
+
 -- Create bounding windows for country-specific processing
 
 -- etldoc: ne_10m_admin_0_countries ->  ne_10m_admin_0_gb_buffer
