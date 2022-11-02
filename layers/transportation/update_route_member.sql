@@ -67,8 +67,7 @@ BEGIN
     INSERT INTO osm_route_member (osm_id, member, ref, network)
     SELECT r.*
     FROM gbr_route_members_view AS r
-             JOIN transportation_name.network_changes AS c ON
-        r.osm_id = c.osm_id;
+    WHERE EXISTS (SELECT NULL FROM transportation_name.network_changes AS c WHERE c.osm_id = r.osm_id);
 
     INSERT INTO osm_route_member (id, osm_id, network_type, concurrency_index, rank)
     SELECT
