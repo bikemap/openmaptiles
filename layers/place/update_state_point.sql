@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS place_state;
 
 CREATE TABLE IF NOT EXISTS place_state.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc: ne_10m_admin_1_states_provinces   -> osm_state_point
@@ -67,11 +67,7 @@ CREATE INDEX IF NOT EXISTS osm_state_point_rank_idx ON osm_state_point ("rank");
 CREATE OR REPLACE FUNCTION place_state.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO place_state.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO place_state.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO place_state.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;

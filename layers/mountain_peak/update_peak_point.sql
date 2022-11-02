@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS mountain_peak_point;
 
 CREATE TABLE IF NOT EXISTS mountain_peak_point.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc:  osm_peak_point ->  osm_peak_point
@@ -26,11 +26,7 @@ SELECT update_osm_peak_point(true);
 CREATE OR REPLACE FUNCTION mountain_peak_point.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO mountain_peak_point.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO mountain_peak_point.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO mountain_peak_point.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;

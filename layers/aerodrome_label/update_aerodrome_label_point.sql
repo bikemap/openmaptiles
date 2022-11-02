@@ -12,7 +12,7 @@ CREATE SCHEMA IF NOT EXISTS aerodrome_label;
 
 CREATE TABLE IF NOT EXISTS aerodrome_label.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc: osm_aerodrome_label_point -> osm_aerodrome_label_point
@@ -48,11 +48,7 @@ SELECT update_aerodrome_label_point(true);
 CREATE OR REPLACE FUNCTION aerodrome_label.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO aerodrome_label.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO aerodrome_label.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO aerodrome_label.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;

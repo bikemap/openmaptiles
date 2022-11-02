@@ -203,8 +203,7 @@ CREATE SCHEMA IF NOT EXISTS transportation_name;
 
 CREATE TABLE IF NOT EXISTS transportation_name.network_changes
 (
-    osm_id bigint,
-    UNIQUE (osm_id)
+    osm_id bigint PRIMARY KEY
 );
 
 CREATE OR REPLACE FUNCTION transportation_name.route_member_store() RETURNS trigger AS

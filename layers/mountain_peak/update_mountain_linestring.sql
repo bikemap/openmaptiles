@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS mountain_linestring;
 
 CREATE TABLE IF NOT EXISTS mountain_linestring.osm_ids
 (
-    osm_id bigint
+    osm_id bigint PRIMARY KEY
 );
 
 -- etldoc:  osm_mountain_linestring ->  osm_mountain_linestring
@@ -26,11 +26,7 @@ SELECT update_osm_mountain_linestring(true);
 CREATE OR REPLACE FUNCTION mountain_linestring.store() RETURNS trigger AS
 $$
 BEGIN
-    IF (tg_op = 'DELETE') THEN
-        INSERT INTO mountain_linestring.osm_ids VALUES (OLD.osm_id);
-    ELSE
-        INSERT INTO mountain_linestring.osm_ids VALUES (NEW.osm_id);
-    END IF;
+    INSERT INTO mountain_linestring.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
