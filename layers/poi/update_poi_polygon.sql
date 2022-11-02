@@ -88,13 +88,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_store
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_poi_polygon
     FOR EACH ROW
 EXECUTE PROCEDURE poi_polygon.store();
 
 CREATE TRIGGER trigger_flag
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_poi_polygon
     FOR EACH STATEMENT
 EXECUTE PROCEDURE poi_polygon.flag();

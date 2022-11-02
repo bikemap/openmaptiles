@@ -82,13 +82,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_store
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_marine_point
     FOR EACH ROW
 EXECUTE PROCEDURE water_name_marine.store();
 
 CREATE TRIGGER trigger_flag
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_marine_point
     FOR EACH STATEMENT
 EXECUTE PROCEDURE water_name_marine.flag();

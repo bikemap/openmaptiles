@@ -70,13 +70,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER trigger_store
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_island_polygon
     FOR EACH ROW
 EXECUTE PROCEDURE place_island_polygon.store();
 
 CREATE TRIGGER trigger_flag
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_island_polygon
     FOR EACH STATEMENT
 EXECUTE PROCEDURE place_island_polygon.flag();
