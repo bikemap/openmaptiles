@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS ne_10m_admin_0_bg_buffer AS
-SELECT ST_Buffer(geometry, 10000)
+SELECT ST_Buffer(geometry, 10000) AS geometry
 FROM ne_10m_admin_0_countries
 WHERE iso_a2 = 'GB';
 
@@ -9,10 +9,20 @@ SELECT 0,
        substring(ref FROM E'^[AM][0-9AM()]+'),
        CASE WHEN highway = 'motorway' THEN 'omt-gb-motorway' ELSE 'omt-gb-trunk' END
 FROM osm_highway_linestring
-WHERE length(ref) > 0
-  AND ST_Intersects(geometry, (SELECT * FROM ne_10m_admin_0_bg_buffer))
+WHERE coalesce(ref, '') <> ''
   AND highway IN ('motorway', 'trunk')
+  AND EXISTS(
+      SELECT NULL
+      FROM ne_10m_admin_0_bg_buffer
+      WHERE ST_Intersects(ne_10m_admin_0_bg_buffer.geometry, osm_highway_linestring.geometry)
+  )
 ;
+
+  -- Indexes for queries originating from gbr_route_members_view
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_highway_route_members_view_idx
+    ON osm_highway_linestring (coalesce(ref, ''), highway);
+CREATE INDEX IF NOT EXISTS ne_10m_admin_0_bg_buffer_geometry_idx ON ne_10m_admin_0_bg_buffer USING gist (geometry);
+
 -- Create GBR relations (so we can use it in the same way as other relations)
 DELETE
 FROM osm_route_member
