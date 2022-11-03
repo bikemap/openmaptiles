@@ -21,7 +21,7 @@ SELECT 0,
        substring(ref FROM E'^[ABM][0-9ABM()]+'),
        -- See https://wiki.openstreetmap.org/wiki/Roads_in_the_United_Kingdom
        CASE WHEN highway = 'motorway' THEN 'omt-gb-motorway'
-            WHEN highway = 'trunk' THEN 'omt-gb-trunk' 
+            WHEN highway = 'trunk' THEN 'omt-gb-trunk'
             WHEN highway IN ('primary','secondary') THEN 'omt-gb-primary' END AS network
 FROM osm_highway_linestring
 WHERE length(ref) > 1
@@ -37,7 +37,7 @@ SELECT 0,
        substring(ref FROM E'^[MNRL][0-9]+'),
        -- See https://wiki.openstreetmap.org/wiki/Ireland/Roads
        CASE WHEN highway = 'motorway' THEN 'omt-ie-motorway'
-            WHEN highway IN ('trunk','primary') THEN 'omt-ie-national' 
+            WHEN highway IN ('trunk','primary') THEN 'omt-ie-national'
             ELSE 'omt-ie-regional' END AS network
 FROM osm_highway_linestring
 WHERE length(ref) > 1
