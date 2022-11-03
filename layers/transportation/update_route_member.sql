@@ -13,6 +13,11 @@ WHERE length(ref) > 0
   AND ST_Intersects(geometry, (SELECT * FROM ne_10m_admin_0_bg_buffer))
   AND highway IN ('motorway', 'trunk')
 ;
+
+CREATE INDEX IF NOT EXISTS osm_highway_linestring_highway_partial_idx
+    ON osm_highway_linestring (highway)
+    WHERE highway IN ('motorway', 'trunk');
+
 -- Create GBR relations (so we can use it in the same way as other relations)
 DELETE
 FROM osm_route_member
