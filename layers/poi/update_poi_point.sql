@@ -1,53 +1,58 @@
 DROP TRIGGER IF EXISTS trigger_flag ON osm_poi_point;
 DROP TRIGGER IF EXISTS trigger_refresh ON poi_point.updates;
+DROP TRIGGER IF EXISTS trigger_store ON osm_poi_point;
+
+CREATE SCHEMA IF NOT EXISTS poi_point;
+
+CREATE TABLE IF NOT EXISTS poi_point.osm_ids
+(
+    osm_id bigint PRIMARY KEY
+);
 
 -- etldoc:  osm_poi_point ->  osm_poi_point
-CREATE OR REPLACE FUNCTION update_osm_poi_point() RETURNS void AS
+CREATE OR REPLACE FUNCTION update_osm_poi_point(full_update bool) RETURNS void AS
 $$
 BEGIN
     UPDATE osm_poi_point
-    SET subclass = 'subway'
-    WHERE station = 'subway'
-      AND subclass = 'station';
-
-    UPDATE osm_poi_point
-    SET subclass = 'halt'
-    WHERE funicular = 'yes'
-      AND subclass = 'station';
-
-    -- ATM without name 
-    -- use either operator or network
-    -- (using name for ATM is discouraged, see osm wiki)
-    UPDATE osm_poi_point
-    SET (name, tags) = (
-        COALESCE(tags -> 'operator', tags -> 'network'),
-        tags || hstore('name', COALESCE(tags -> 'operator', tags -> 'network'))
-    )
-    WHERE subclass = 'atm'
-      AND name = ''
-      AND COALESCE(tags -> 'operator', tags -> 'network') IS NOT NULL;
-
-    -- Parcel locker without name 
-    -- use either brand or operator and add ref if present
-    -- (using name for parcel lockers is discouraged, see osm wiki)
-    UPDATE osm_poi_point
-    SET (name, tags) = (
-        CONCAT(COALESCE(tags -> 'brand', tags -> 'operator'), concat(' ', tags -> 'ref')),
-        tags || hstore('name', CONCAT(COALESCE(tags -> 'brand', tags -> 'operator'), concat(' ', tags -> 'ref')))
-    )
-    WHERE subclass = 'parcel_locker'
-      AND name = ''
-      AND COALESCE(tags -> 'brand', tags -> 'operator') IS NOT NULL;
+    SET subclass = CASE
+        WHEN subclass = 'station' THEN CASE
+            WHEN station = 'subway' THEN 'subway'
+            WHEN funicular = 'yes' THEN 'halt'
+            ELSE subclass END
+        ELSE subclass END,
+        name = CASE
+        WHEN name = '' THEN CASE
+            -- ATM without name
+            -- use either operator or network
+            -- (using name for ATM is discouraged, see osm wiki)
+            WHEN subclass = 'atm' THEN COALESCE(COALESCE(tags -> 'operator', tags -> 'network'), name)
+            -- Parcel locker without name
+            -- use either brand or operator and add ref if present
+            -- (using name for parcel lockers is discouraged, see osm wiki)
+            WHEN subclass = 'parcel_locker' AND COALESCE(tags -> 'brand', tags -> 'operator') IS NOT NULL
+                THEN CONCAT(COALESCE(tags -> 'brand', tags -> 'operator'), concat(' ', tags -> 'ref'))
+            ELSE name END
+        ELSE name END,
+        tags = CASE
+        WHEN name = '' THEN CASE
+            WHEN subclass = 'atm' AND COALESCE(tags -> 'operator', tags -> 'network') IS NOT NULL
+                THEN tags || hstore('name', COALESCE(tags -> 'operator', tags -> 'network'))
+            WHEN subclass = 'parcel_locker' AND COALESCE(tags -> 'brand', tags -> 'operator') IS NOT NULL
+                THEN tags || hstore('name', CONCAT(COALESCE(tags -> 'brand', tags -> 'operator'), concat(' ', tags -> 'ref')))
+            ELSE tags END
+        ELSE tags END
+    WHERE (full_update OR osm_id IN (SELECT osm_id FROM poi_point.osm_ids));
 
     UPDATE osm_poi_point
     SET tags = update_tags(tags, geometry)
-    WHERE COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
+    WHERE (full_update OR osm_id IN (SELECT osm_id FROM poi_point.osm_ids))
+      AND COALESCE(tags->'name:latin', tags->'name:nonlatin', tags->'name_int') IS NULL
       AND tags != update_tags(tags, geometry);
 
 END;
 $$ LANGUAGE plpgsql;
 
-SELECT update_osm_poi_point();
+SELECT update_osm_poi_point(TRUE);
 
 -- etldoc:  osm_poi_stop_rank ->  osm_poi_point
 CREATE OR REPLACE FUNCTION update_osm_poi_point_agg() RETURNS void AS
@@ -91,7 +96,13 @@ SELECT update_osm_poi_point_agg();
 
 -- Handle updates
 
-CREATE SCHEMA IF NOT EXISTS poi_point;
+CREATE OR REPLACE FUNCTION poi_point.store() RETURNS trigger AS
+$$
+BEGIN
+    INSERT INTO poi_point.osm_ids VALUES (NEW.osm_id) ON CONFLICT (osm_id) DO NOTHING;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE TABLE IF NOT EXISTS poi_point.updates
 (
@@ -113,10 +124,17 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh poi_point';
-    PERFORM update_osm_poi_point();
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE poi_point.osm_ids;
+    ANALYZE osm_poi_point;
+
+    PERFORM update_osm_poi_point(FALSE);
     REFRESH MATERIALIZED VIEW osm_poi_stop_centroid;
     REFRESH MATERIALIZED VIEW osm_poi_stop_rank;
     PERFORM update_osm_poi_point_agg();
+    -- noinspection SqlWithoutWhere
+    DELETE FROM poi_point.osm_ids;
     -- noinspection SqlWithoutWhere
     DELETE FROM poi_point.updates;
 
@@ -125,8 +143,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE TRIGGER trigger_store
+    AFTER INSERT OR UPDATE
+    ON osm_poi_point
+    FOR EACH ROW
+EXECUTE PROCEDURE poi_point.store();
+
 CREATE TRIGGER trigger_flag
-    AFTER INSERT OR UPDATE OR DELETE
+    AFTER INSERT OR UPDATE
     ON osm_poi_point
     FOR EACH STATEMENT
 EXECUTE PROCEDURE poi_point.flag();
