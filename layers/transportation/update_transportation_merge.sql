@@ -6,6 +6,7 @@ DROP TRIGGER IF EXISTS trigger_store_transportation_highway_linestring_gen_z11 O
 DROP TRIGGER IF EXISTS trigger_store_osm_transportation_merge_linestring_gen_z11 ON osm_transportation_merge_linestring_gen_z11;
 DROP TRIGGER IF EXISTS trigger_flag_transportation_z11 ON osm_highway_linestring_gen_z11;
 DROP TRIGGER IF EXISTS trigger_refresh_z11 ON transportation.updates_z11;
+DROP TRIGGER IF EXISTS trigger_store_transportation_name_network ON osm_transportation_name_network;
 
 -- Instead of using relations to find out the road names we
 -- stitch together the touching ways with the same name
@@ -67,15 +68,23 @@ FROM (
     WHERE (hl.name <> '' OR hl.ref <> '' OR rm1.ref <> '' OR rm1.network <> '')
       AND hl.highway <> ''
 ) AS t;
-CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_name_network_osm_id_idx ON osm_transportation_name_network (osm_id);
-CREATE INDEX IF NOT EXISTS osm_transportation_name_network_name_ref_idx ON osm_transportation_name_network (coalesce(tags->'name', ''), coalesce(ref, ''));
-CREATE INDEX IF NOT EXISTS osm_transportation_name_network_geometry_idx ON osm_transportation_name_network USING gist (geometry);
 
--- Improve performance of the sql in transportation/update_route_member.sql
-CREATE INDEX IF NOT EXISTS osm_highway_linestring_highway_partial_idx
-    ON osm_highway_linestring (highway)
-    WHERE highway IN ('motorway', 'trunk');
+-- Create Primary-Key for osm_transportation_name_network table
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT constraint_name
+        FROM information_schema.table_constraints
+        WHERE table_name = 'osm_transportation_name_network' AND constraint_type = 'PRIMARY KEY'
+    ) THEN
+        ALTER TABLE osm_transportation_name_network ADD PRIMARY KEY (osm_id);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
 
+-- Geometry Index
+CREATE INDEX IF NOT EXISTS osm_transportation_name_network_geometry_idx
+    ON osm_transportation_name_network USING gist (geometry);
 
 -- etldoc: osm_highway_linestring_gen_z11 ->  osm_transportation_merge_linestring_gen_z11
 CREATE TABLE IF NOT EXISTS osm_transportation_merge_linestring_gen_z11(
