@@ -70,6 +70,11 @@ DECLARE
     t TIMESTAMP WITH TIME ZONE := clock_timestamp();
 BEGIN
     RAISE LOG 'Refresh water_name_marine rank';
+
+    -- Analyze tracking and source tables before performing update
+    ANALYZE water_name_marine.osm_ids;
+    ANALYZE osm_marine_point;
+
     PERFORM update_osm_marine_point(false);
     -- noinspection SqlWithoutWhere
     DELETE FROM water_name_marine.osm_ids;
