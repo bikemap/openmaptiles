@@ -284,6 +284,7 @@ CREATE TABLE IF NOT EXISTS osm_transportation_name_linestring_gen1 (
     subclass text,
     brunnel text,
     network route_network_type,
+    network_name text,
     route_1 text,
     route_2 text,
     route_3 text,
@@ -355,9 +356,10 @@ $$ LANGUAGE plpgsql;
 -- update_transportation_name_linestring_gen() function
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_name_linestring_update_partial_idx
     ON osm_transportation_name_linestring (id)
-    WHERE (highway IN ('motorway', 'trunk') OR highway = 'construction' AND subclass IN ('motorway', 'trunk'))
-          AND ST_Length(geometry) > 8000;
-
+    WHERE (
+        network IN ('icn', 'ncn', 'rcn') OR
+        (highway IN ('motorway', 'trunk') OR highway = 'construction' AND subclass IN ('motorway', 'trunk'))
+    ) AND ST_Length(geometry) > 8000;
 -- Temporary index for filling source tables
 CREATE INDEX IF NOT EXISTS osm_transportation_name_linestring_source_idx ON osm_transportation_name_linestring (source);
 
@@ -434,9 +436,10 @@ BEGIN
 
     -- etldoc: osm_transportation_name_linestring -> osm_transportation_name_linestring_gen1
     INSERT INTO osm_transportation_name_linestring_gen1 (id, geometry, tags, ref, highway, subclass, brunnel, network,
-                                                         route_1, route_2, route_3, route_4, route_5, route_6, z_order)
-    SELECT id, ST_Simplify(geometry, 50) AS geometry, tags, ref, highway, subclass, brunnel, network, route_1, route_2,
-           route_3, route_4, route_5, route_6, z_order
+                                                         network_name, route_1, route_2, route_3, route_4, route_5,
+                                                         route_6, z_order)
+    SELECT id, ST_Simplify(geometry, 50) AS geometry, tags, ref, highway, subclass, brunnel, network, network_name,
+           route_1, route_2, route_3, route_4, route_5, route_6, z_order
     FROM osm_transportation_name_linestring
     WHERE (
         full_update IS TRUE OR EXISTS (
@@ -446,11 +449,14 @@ BEGIN
                   transportation_name.name_changes_gen.id = osm_transportation_name_linestring.id
         )
     ) AND (
-        (highway IN ('motorway', 'trunk') OR highway = 'construction' AND subclass IN ('motorway', 'trunk')) AND
-        ST_Length(geometry) > 8000
+        (
+            network IN ('icn', 'ncn', 'rcn') OR
+            (highway IN ('motorway', 'trunk') OR highway = 'construction' AND subclass IN ('motorway', 'trunk'))
+        ) AND ST_Length(geometry) > 8000
     ) ON CONFLICT (id) DO UPDATE SET geometry = excluded.geometry, tags = excluded.tags, ref = excluded.ref,
                                      highway = excluded.highway, subclass = excluded.subclass,
-                                     brunnel = excluded.brunnel, network = excluded.network, route_1 = excluded.route_1,
+                                     brunnel = excluded.brunnel, network = excluded.network,
+                                     network_name = excluded.network_name, route_1 = excluded.route_1,
                                      route_2 = excluded.route_2, route_3 = excluded.route_3, route_4 = excluded.route_4,
                                      route_5 = excluded.route_5, route_6 = excluded.route_6, z_order = excluded.z_order;
 
@@ -467,9 +473,10 @@ BEGIN
 
     -- etldoc: osm_transportation_name_linestring_gen1 -> osm_transportation_name_linestring_gen2
     INSERT INTO osm_transportation_name_linestring_gen2 (id, geometry, tags, ref, highway, subclass, brunnel, network,
-                                                         route_1, route_2, route_3, route_4, route_5, route_6, z_order)
-    SELECT id, ST_Simplify(geometry, 120) AS geometry, tags, ref, highway, subclass, brunnel, network, route_1, route_2,
-           route_3, route_4, route_5, route_6, z_order
+                                                         network_name, route_1, route_2, route_3, route_4, route_5,
+                                                         route_6, z_order)
+    SELECT id, ST_Simplify(geometry, 120) AS geometry, tags, ref, highway, subclass, brunnel, network, network_name,
+           route_1, route_2, route_3, route_4, route_5, route_6, z_order
     FROM osm_transportation_name_linestring_gen1
     WHERE (
         full_update IS TRUE OR EXISTS (
@@ -479,11 +486,14 @@ BEGIN
                   transportation_name.name_changes_gen.id = osm_transportation_name_linestring_gen1.id
         )
     ) AND (
-        (highway IN ('motorway', 'trunk') OR highway = 'construction' AND subclass IN ('motorway', 'trunk')) AND
-        ST_Length(geometry) > 14000
+        (
+            network IN ('icn', 'ncn', 'rcn') OR
+            (highway IN ('motorway', 'trunk') OR highway = 'construction' AND subclass IN ('motorway', 'trunk'))
+        ) AND ST_Length(geometry) > 14000
     ) ON CONFLICT (id) DO UPDATE SET geometry = excluded.geometry, tags = excluded.tags, ref = excluded.ref,
                                      highway = excluded.highway, subclass = excluded.subclass,
-                                     brunnel = excluded.brunnel, network = excluded.network, route_1 = excluded.route_1,
+                                     brunnel = excluded.brunnel, network = excluded.network,
+                                     network_name = excluded.network_name, route_1 = excluded.route_1,
                                      route_2 = excluded.route_2, route_3 = excluded.route_3, route_4 = excluded.route_4,
                                      route_5 = excluded.route_5, route_6 = excluded.route_6, z_order = excluded.z_order;
 
@@ -500,9 +510,10 @@ BEGIN
 
     -- etldoc: osm_transportation_name_linestring_gen2 -> osm_transportation_name_linestring_gen3
     INSERT INTO osm_transportation_name_linestring_gen3 (id, geometry, tags, ref, highway, subclass, brunnel, network,
-                                                         route_1, route_2, route_3, route_4, route_5, route_6, z_order)
-    SELECT id, ST_Simplify(geometry, 200) AS geometry, tags, ref, highway, subclass, brunnel, network, route_1, route_2,
-           route_3, route_4, route_5, route_6, z_order
+                                                         network_name, route_1, route_2, route_3, route_4, route_5,
+                                                         route_6, z_order)
+    SELECT id, ST_Simplify(geometry, 200) AS geometry, tags, ref, highway, subclass, brunnel, network, network_name,
+           route_1, route_2, route_3, route_4, route_5, route_6, z_order
     FROM osm_transportation_name_linestring_gen2
     WHERE (
         full_update IS TRUE OR EXISTS (
@@ -512,11 +523,14 @@ BEGIN
                   transportation_name.name_changes_gen.id = osm_transportation_name_linestring_gen2.id
         )
     ) AND (
-        (highway = 'motorway' OR highway = 'construction' AND subclass = 'motorway') AND
-        ST_Length(geometry) > 20000
+        (
+            network IN ('icn', 'ncn') OR
+            (highway = 'motorway' OR highway = 'construction' AND subclass = 'motorway')
+        ) AND ST_Length(geometry) > 20000
     ) ON CONFLICT (id) DO UPDATE SET geometry = excluded.geometry, tags = excluded.tags, ref = excluded.ref,
                                      highway = excluded.highway, subclass = excluded.subclass,
-                                     brunnel = excluded.brunnel, network = excluded.network, route_1 = excluded.route_1,
+                                     brunnel = excluded.brunnel, network = excluded.network,
+                                     network_name = excluded.network_name, route_1 = excluded.route_1,
                                      route_2 = excluded.route_2, route_3 = excluded.route_3, route_4 = excluded.route_4,
                                      route_5 = excluded.route_5, route_6 = excluded.route_6, z_order = excluded.z_order;
 
@@ -571,12 +585,16 @@ SELECT update_transportation_name_linestring_gen(TRUE);
 -- Indexes for queries originating from update_transportation_name_linestring_gen() function
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_name_linestring_gen1_update_partial_idx
     ON osm_transportation_name_linestring_gen1 (id)
-    WHERE (highway IN ('motorway', 'trunk') OR highway = 'construction' AND subclass IN ('motorway', 'trunk'))
-          AND ST_Length(geometry) > 14000;
+    WHERE (
+        network IN ('icn', 'ncn', 'rcn') OR
+        (highway IN ('motorway', 'trunk') OR highway = 'construction' AND subclass IN ('motorway', 'trunk'))
+    ) AND ST_Length(geometry) > 14000;
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_name_linestring_gen2_update_partial_idx
     ON osm_transportation_name_linestring_gen2 (id)
-    WHERE (highway = 'motorway' OR highway = 'construction' AND subclass = 'motorway')
-          AND ST_Length(geometry) > 20000;
+    WHERE (
+        network IN ('icn', 'ncn') OR
+        (highway = 'motorway' OR highway = 'construction' AND subclass = 'motorway')
+    ) AND ST_Length(geometry) > 20000;
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_name_linestring_gen3_update_partial_idx
     ON osm_transportation_name_linestring_gen3 (id)
     WHERE (highway = 'motorway' OR highway = 'construction' AND subclass = 'motorway')
