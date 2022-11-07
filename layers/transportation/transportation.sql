@@ -74,7 +74,7 @@ SELECT osm_id,
        NULLIF(horse, '') AS horse,
        NULLIF(mtb_scale, '') AS mtb_scale,
        NULLIF(surface, '') AS surface,
-       cycleway_value(cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street) AS cycleway,
+       NULLIF(cycleway, '') AS cycleway,
        oneway_bicycle_value(oneway_bicycle) AS oneway_bicycle,
        NULLIF(cycle_network, '') AS cycle_network
 FROM (
@@ -107,10 +107,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -147,10 +143,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -187,10 +179,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -227,10 +215,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn') THEN network END AS cycle_network,
                 z_order
@@ -267,10 +251,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn') THEN network END AS cycle_network,
                 z_order
@@ -306,11 +286,7 @@ FROM (
                 horse,
                 mtb_scale,
                 NULL AS surface,
-                cycleway_value(cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street) AS cycleway,
-                cycleway_both,
-                cycleway_left,
-                cycleway_right,
-                cycleway_street,
+                cycleway,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn') THEN network END AS cycle_network,
                 z_order
@@ -346,11 +322,7 @@ FROM (
                 horse,
                 mtb_scale,
                 NULL AS surface,
-                cycleway_value(cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street) AS cycleway,
-                cycleway_both,
-                cycleway_left,
-                cycleway_right,
-                cycleway_street,
+                cycleway,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn') THEN network END AS cycle_network,
                 z_order
@@ -386,11 +358,7 @@ FROM (
                 horse,
                 mtb_scale,
                 NULL AS surface,
-                cycleway_value(cycleway, cycleway_both, cycleway_left, cycleway_right, cycleway_street) AS cycleway,
-                cycleway_both,
-                cycleway_left,
-                cycleway_right,
-                cycleway_street,
+                cycleway,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN network END AS cycle_network,
                 z_order
@@ -431,11 +399,10 @@ FROM (
                 horse,
                 mtb_scale,
                 surface_value(COALESCE(NULLIF(surface, ''), tracktype)) AS "surface",
-                cycleway_value(cycleway,cycleway_both,cycleway_left, cycleway_right, cycleway_street) AS cycleway,
-                cycleway_both,
-                cycleway_left,
-                cycleway_right,
-                cycleway_street,
+                cycleway_value(
+                    cycleway,cycleway_both,cycleway_left,
+                    cycleway_right, cycleway_street
+                ) AS cycleway,
                 oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN network END AS cycle_network,
                 hl.z_order
@@ -494,10 +461,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -537,10 +500,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -580,10 +539,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -622,10 +577,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -664,10 +615,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -707,10 +654,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -750,10 +693,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -791,10 +730,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -830,6 +765,9 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
+                NULL AS cycle_network,
                 z_order
          FROM osm_shipway_linestring_gen_z4
          WHERE zoom_level = 4
@@ -863,6 +801,9 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
+                NULL AS cycle_network,
                 z_order
          FROM osm_shipway_linestring_gen_z5
          WHERE zoom_level = 5
@@ -896,6 +837,9 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
+                NULL AS cycle_network,
                 z_order
          FROM osm_shipway_linestring_gen_z6
          WHERE zoom_level = 6
@@ -929,6 +873,9 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
+                NULL AS cycle_network,
                 z_order
          FROM osm_shipway_linestring_gen_z7
          WHERE zoom_level = 7
@@ -962,6 +909,9 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
+                NULL AS cycle_network,
                 z_order
          FROM osm_shipway_linestring_gen_z8
          WHERE zoom_level = 8
@@ -995,6 +945,9 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
+                NULL AS cycle_network,
                 z_order
          FROM osm_shipway_linestring_gen_z9
          WHERE zoom_level = 9
@@ -1028,6 +981,9 @@ FROM (
                 NULL AS horse,
                 NULL AS mtb_scale,
                 NULL AS surface,
+                NULL AS cycleway,
+                NULL AS oneway_bicycle,
+                NULL AS cycle_network,
                 z_order
          FROM osm_shipway_linestring_gen_z10
          WHERE zoom_level = 10
@@ -1062,10 +1018,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -1102,10 +1054,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -1143,10 +1091,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
@@ -1191,10 +1135,6 @@ FROM (
                 NULL AS mtb_scale,
                 NULL AS surface,
                 NULL AS cycleway,
-                NULL AS cycleway_both,
-                NULL AS cycleway_left,
-                NULL AS cycleway_right,
-                NULL AS cycleway_street,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
                 z_order
