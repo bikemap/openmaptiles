@@ -27,7 +27,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS osm_aerialway_linestring_update_partial_idx ON
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_name_network_update_partial_idx
     ON osm_transportation_name_network (osm_id)
     WHERE coalesce(tags->'name', '') <> '' OR
-          coalesce(ref, '') <> '';
+          coalesce(ref, '') <> '' OR (
+          network_type = ANY('{icn,ncn,rcn,lcn}') AND
+          nullif(network_name, '') IS NOT NULL
+      );
 CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_name_network_osm_id_idx ON osm_transportation_name_network (osm_id);
 
 -- Analyze tables with indexes created on them
@@ -51,6 +54,7 @@ CREATE TABLE IF NOT EXISTS osm_transportation_name_linestring(
     layer integer,
     indoor boolean,
     network route_network_type,
+    network_name text,
     route_1 text,
     route_2 text,
     route_3 text,
@@ -76,8 +80,8 @@ TRUNCATE osm_transportation_name_linestring;
 TRUNCATE osm_transportation_name_linestring_source_ids;
 
 INSERT INTO osm_transportation_name_linestring(source, geometry, source_ids, tags, ref, highway, subclass, brunnel,
-                                               sac_scale, "level", layer, indoor, network, route_1, route_2,
-                                               route_3, route_4, route_5, route_6,z_order, route_rank)
+                                               sac_scale, "level", layer, indoor, network, network_name, route_1,
+                                               route_2, route_3, route_4, route_5, route_6,z_order, route_rank)
 SELECT source,
        geometry,
        source_ids,
@@ -91,6 +95,7 @@ SELECT source,
        layer,
        indoor,
        network_type AS network,
+       network_name,
        route_1, route_2, route_3, route_4, route_5, route_6,
        z_order,
        route_rank
@@ -117,6 +122,7 @@ FROM (
                 layer,
                 indoor,
                 network_type,
+                network_name,
                 route_1, route_2, route_3, route_4, route_5, route_6,
                 min(z_order) AS z_order,
                 min(route_rank) AS route_rank
@@ -126,7 +132,7 @@ FROM (
                     -- to 1. https://postgis.net/docs/ST_ClusterDBSCAN.html
                     ST_ClusterDBSCAN(geometry, 0, 1) OVER (
                         PARTITION BY tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor,
-                                     network_type, route_1, route_2, route_3, route_4, route_5, route_6
+                                     network_type, network_name, route_1, route_2, route_3, route_4, route_5, route_6
                     ) AS cluster,
                     -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition
                     -- starting at 0. This leads to clusters having the same ID across multiple partitions
@@ -134,14 +140,16 @@ FROM (
                     -- partition columns.
                     DENSE_RANK() OVER (
                         ORDER BY tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor,
-                                 network_type, route_1, route_2, route_3, route_4, route_5, route_6
+                                 network_type, network_name, route_1, route_2, route_3, route_4, route_5, route_6
                     ) as cluster_group
              FROM osm_transportation_name_network
              WHERE coalesce(tags->'name', '') <> '' OR
-                   coalesce(ref, '') <> ''
+                   coalesce(ref, '') <> '' OR (
+                       network_type = ANY('{icn,ncn,rcn,lcn}') AND nullif(network_name, '') IS NOT NULL
+                   )
          ) q
          GROUP BY cluster_group, cluster, tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor,
-                  network_type, route_1, route_2, route_3, route_4, route_5, route_6
+                  network_type, network_name, route_1, route_2, route_3, route_4, route_5, route_6
          UNION ALL
 
          -- Merge LineStrings from osm_shipway_linestring by grouping them and creating intersecting
@@ -168,6 +176,7 @@ FROM (
                 layer,
                 NULL AS indoor,
                 NULL AS network_type,
+                NULL AS network_name,
                 NULL AS route_1,
                 NULL AS route_2,
                 NULL AS route_3,
@@ -226,6 +235,7 @@ FROM (
                 layer,
                 NULL AS indoor,
                 NULL AS network_type,
+                NULL AS network_name,
                 NULL AS route_1,
                 NULL AS route_2,
                 NULL AS route_3,
@@ -613,6 +623,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+CREATE TABLE IF NOT EXISTS transportation_name.superroute_changes
+(
+    osm_id bigint PRIMARY KEY
+);
+
+-- Store IDs of changed elements from osm_superroute_member table.
+CREATE OR REPLACE FUNCTION transportation_name.superroute_member_store() RETURNS trigger AS
+$$
+BEGIN
+
+    INSERT INTO transportation_name.superroute_changes(osm_id) VALUES (
+        (CASE WHEN tg_op IN ('DELETE', 'UPDATE') THEN old.osm_id ELSE new.osm_id END)
+    ) ON CONFLICT DO NOTHING;
+
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
 -- Store IDs of changed elements from osm_highway_linestring table.
 CREATE OR REPLACE FUNCTION transportation_name.highway_linestring_store() RETURNS trigger AS
 $$
@@ -700,6 +728,7 @@ BEGIN
         layer,
         indoor,
         network_type,
+        network_name,
         route_1, route_2, route_3, route_4, route_5, route_6,
         z_order,
         route_rank
@@ -708,6 +737,7 @@ BEGIN
             hl.osm_id,
             transportation_name_tags(hl.geometry, hl.tags, hl.name, hl.name_en, hl.name_de) AS tags,
             rm1.network_type,
+            NULLIF(rm1.name, '') as network_name,
             CASE
                 WHEN rm1.network_type IS NOT NULL AND rm1.ref::text <> ''
                     THEN rm1.ref::text
@@ -758,6 +788,12 @@ CREATE TRIGGER trigger_store_transportation_route_member
     ON osm_route_member
     FOR EACH ROW
 EXECUTE PROCEDURE transportation_name.route_member_store();
+
+CREATE TRIGGER trigger_store_transportation_superroute_member
+    AFTER INSERT OR UPDATE OR DELETE
+    ON osm_superroute_member
+    FOR EACH ROW
+EXECUTE PROCEDURE transportation_name.superroute_member_store();
 
 CREATE TRIGGER trigger_store_transportation_highway_linestring
     AFTER INSERT OR UPDATE OR DELETE
@@ -981,8 +1017,8 @@ BEGIN
     CREATE TEMPORARY TABLE linestrings_to_merge AS
     -- Add all Source-LineStrings affected by this update
     SELECT osm_id, NULL::INTEGER AS id, NULL::BIGINT[] AS source_ids, geometry, tags, ref, highway, subclass, brunnel,
-           sac_scale, level, layer, indoor, network_type, route_1, route_2, route_3, route_4, route_5, route_6,
-           z_order, route_rank
+           sac_scale, level, layer, indoor, network_type, network_name, route_1, route_2, route_3, route_4, route_5,
+           route_6, z_order, route_rank
     FROM (
         -- Get Source-LineString-IDs of deleted or updated elements
         SELECT unnest(affected_merged_linestrings.source_ids)::bigint AS source_id
@@ -995,7 +1031,9 @@ BEGIN
     JOIN osm_transportation_name_network ON (
         affected_source_linestrings.source_id = osm_transportation_name_network.osm_id
     )
-    WHERE coalesce(tags->'name', '') <> '' OR coalesce(ref, '') <> '';
+    WHERE coalesce(tags->'name', '') <> '' OR coalesce(ref, '') <> '' OR (
+        network_type = ANY('{icn,ncn,rcn,lcn}') AND NULLIF(network_name, '') IS NOT NULL
+    );
 
     -- Drop temporary tables early to save resources
     DROP TABLE affected_merged_linestrings;
@@ -1012,7 +1050,7 @@ BEGIN
                WHERE s.source = 0 AND m.id = s.id
            )::BIGINT[] AS source_ids,
            m.geometry, m.tags, m.ref, m.highway, m.subclass, m.brunnel, m.sac_scale,
-           m.level, m.layer, m.indoor, m.network AS network_type, m.route_1, m.route_2, m.route_3,
+           m.level, m.layer, m.indoor, m.network AS network_type, m.network_name, m.route_1, m.route_2, m.route_3,
            m.route_4, m.route_5, m.route_6, m.z_order, m.route_rank
     FROM linestrings_to_merge
     JOIN osm_transportation_name_linestring m ON (ST_Intersects(linestrings_to_merge.geometry, m.geometry))
@@ -1041,14 +1079,14 @@ BEGIN
            -- https://postgis.net/docs/ST_ClusterDBSCAN.html
            ST_ClusterDBSCAN(geometry, 0, 1) OVER (
                PARTITION BY tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor, network_type,
-                            route_1, route_2, route_3, route_4, route_5, route_6
+                            network_name, route_1, route_2, route_3, route_4, route_5, route_6
            ) AS cluster,
            -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
            -- This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (
-               ORDER BY tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor, network_type, route_1,
-                        route_2, route_3, route_4, route_5, route_6
+               ORDER BY tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor, network_type,
+                        network_name, route_1, route_2, route_3, route_4, route_5, route_6
            ) as cluster_group
     FROM linestrings_to_merge;
 
@@ -1069,8 +1107,8 @@ BEGIN
         -- Merge LineStrings of each cluster and insert them
         INSERT INTO osm_transportation_name_linestring(source, geometry, new_source_ids, old_source_ids, tags, ref,
                                                        highway, subclass, brunnel, sac_scale, "level", layer, indoor,
-                                                       network, route_1, route_2, route_3, route_4, route_5, route_6,
-                                                       z_order, route_rank)
+                                                       network, network_name, route_1, route_2, route_3, route_4,
+                                                       route_5, route_6, z_order, route_rank)
         SELECT 0 AS source, (ST_Dump(ST_LineMerge(ST_Union(geometry)))).geom AS geometry,
                -- We use St_Union instead of St_Collect to ensure no overlapping points exist within the geometries
                -- to merge. https://postgis.net/docs/ST_Union.html
@@ -1082,11 +1120,11 @@ BEGIN
                coalesce( array_agg(osm_id) FILTER (WHERE osm_id IS NOT NULL), '{}' )::BIGINT[] AS new_source_ids,
                array_cat_agg(source_ids)::BIGINT[] as old_source_ids,
                tags, ref, highway, subclass, brunnel, sac_scale, level, layer,
-               indoor, network_type, route_1, route_2, route_3, route_4, route_5, route_6,
+               indoor, network_type, network_name, route_1, route_2, route_3, route_4, route_5, route_6,
                min(z_order) AS z_order, min(route_rank) AS route_rank
         FROM clustered_linestrings_to_merge
         GROUP BY cluster_group, cluster, tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor,
-                 network_type, route_1, route_2, route_3, route_4, route_5, route_6
+                 network_type, network_name, route_1, route_2, route_3, route_4, route_5, route_6
         RETURNING source, id, new_source_ids, old_source_ids, geometry
     )
     -- Store OSM-IDs of Source-LineStrings by intersecting Merged-LineStrings with their sources.

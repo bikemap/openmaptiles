@@ -57,17 +57,45 @@ $$ LANGUAGE SQL IMMUTABLE
                 STRICT
                 PARALLEL SAFE;
 
+CREATE OR REPLACE FUNCTION oneway_bicycle_value(oneway_bicycle TEXT) RETURNS boolean AS $$
+    SELECT CASE
+        WHEN NULLIF(oneway_bicycle, '') IS NULL THEN NULL
+        WHEN oneway_bicycle in ('true', 'yes', '1') THEN TRUE
+        ELSE FALSE
+    END
+$$ LANGUAGE SQL IMMUTABLE
+                STRICT
+                PARALLEL SAFE;
+
+
+CREATE OR REPLACE FUNCTION cycleway_value(cycleway TEXT, cycleway_both TEXT, cycleway_left TEXT, cycleway_right TEXT, cyclestreet TEXT) RETURNS text AS $$
+    SELECT CASE
+        WHEN NULLIF(cycleway, '') IS NOT NULL THEN cycleway
+        WHEN NULLIF(cycleway, '') IS NULL AND NULLIF(cycleway_both, '') IS NOT NULL THEN cycleway_both
+        WHEN NULLIF(cycleway, '') IS NULL AND NULLIF(cycleway_both, '') IS NULL AND
+             NULLIF(cycleway_left, '') IS NOT NULL THEN cycleway_left
+        WHEN NULLIF(cycleway, '') IS NULL AND NULLIF(cycleway_both, '') IS NULL AND
+             NULLIF(cycleway_left, '') IS NULL AND NULLIF(cycleway_right, '') IS NOT NULL THEN cycleway_right
+        WHEN NULLIF(cycleway, '') IS NULL AND NULLIF(cycleway_both, '') IS NULL AND
+             NULLIF(cycleway_left, '') IS NULL AND NULLIF(cycleway_right, '') IS NULL AND
+             NULLIF(cyclestreet, '') IS NOT NULL THEN cyclestreet
+        ELSE ''
+    END;
+$$
+LANGUAGE SQL
+IMMUTABLE STRICT PARALLEL SAFE;
+
 -- Determine which transportation features are shown at zoom 12
 CREATE OR REPLACE FUNCTION transportation_filter_z12(highway text, construction text) RETURNS boolean AS
 $$
 SELECT CASE
-           WHEN highway IN ('unclassified', 'residential') THEN TRUE
+           WHEN highway IN ('unclassified', 'residential', 'cycleway') THEN TRUE
            WHEN highway_class(highway, '', construction) IN
                (
                 'motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'raceway',
                 'motorway_construction', 'trunk_construction', 'primary_construction',
                 'secondary_construction', 'tertiary_construction', 'raceway_construction',
-                'busway', 'bus_guideway'
+                'busway', 'bus_guideway', 'cycleway'
                ) THEN TRUE --includes ramps
            ELSE FALSE
        END

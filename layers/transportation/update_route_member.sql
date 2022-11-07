@@ -1,3 +1,5 @@
+DROP TRIGGER IF EXISTS trigger_store_transportation_route_member ON osm_route_member;
+DROP TRIGGER IF EXISTS trigger_store_transportation_superroute_member ON osm_superroute_member;
 DROP TRIGGER IF EXISTS trigger_store_transportation_highway_linestring ON osm_highway_linestring;
 
 -- Create bounding windows for country-specific processing
@@ -70,7 +72,8 @@ SELECT CASE
            WHEN network = 'omt-ie-motorway' THEN 'ie-motorway'::route_network_type
            WHEN network = 'omt-ie-national' THEN 'ie-national'::route_network_type
            WHEN network = 'omt-ie-regional' THEN 'ie-regional'::route_network_type
-            END;
+           WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN network::route_network_type
+           END;
 $$ LANGUAGE sql IMMUTABLE
                 PARALLEL SAFE;
 
@@ -94,6 +97,27 @@ CREATE TABLE IF NOT EXISTS transportation_route_member_coalesced
 CREATE OR REPLACE FUNCTION update_osm_route_member(full_update bool) RETURNS void AS
 $$
 BEGIN
+
+    ANALYZE transportation_name.superroute_changes;
+
+    ALTER TABLE transportation_name.network_changes DISABLE TRIGGER trigger_flag_transportation_name;
+    INSERT INTO transportation_name.network_changes(is_old, osm_id)
+    WITH RECURSIVE recursive_superroute_children AS (
+        SELECT osm_superroute_member.osm_id, osm_superroute_member.member
+        FROM osm_superroute_member
+        JOIN transportation_name.superroute_changes ON
+            osm_superroute_member.osm_id = transportation_name.superroute_changes.osm_id
+        UNION
+        SELECT child.osm_id, child.member
+        FROM osm_superroute_member child
+        JOIN recursive_superroute_children ON child.osm_id = recursive_superroute_children.member
+    )
+    SELECT FALSE, osm_route_member.member
+    FROM osm_route_member, recursive_superroute_children
+    WHERE osm_route_member.osm_id = recursive_superroute_children.member
+    ON CONFLICT(is_old, osm_id) DO NOTHING;
+    ALTER TABLE transportation_name.network_changes ENABLE TRIGGER trigger_flag_transportation_name;
+
     -- Analyze tracking and source tables before performing update
     ANALYZE transportation_name.network_changes;
     ANALYZE osm_highway_linestring;
@@ -135,17 +159,32 @@ BEGIN
 
     -- etldoc: osm_route_member ->  transportation_route_member_coalesced
     INSERT INTO transportation_route_member_coalesced
-    SELECT
-      osm_route_member_filtered.*,
-      osm_route_member_network_type(network, ref) AS network_type,
+    SELECT DISTINCT ON (rm.member, COALESCE(NULLIF(srm.network, ''), rm.network), COALESCE(NULLIF(srm.ref, ''), rm.ref))
+      rm.member,
+      COALESCE(NULLIF(srm.network, ''), rm.network) AS network,
+      COALESCE(NULLIF(srm.ref, ''), rm.ref) AS ref,
+      rm.osm_id,
+      rm.role,
+      rm.type,
+      COALESCE(NULLIF(srm.name, ''), rm.name) AS name,
+      rm.osmc_symbol,
+      rm.colour,
+      osm_route_member_network_type(
+          COALESCE(NULLIF(srm.network, ''), rm.network), COALESCE(NULLIF(srm.ref, ''), rm.ref)
+      ) AS network_type,
       DENSE_RANK() OVER (
-          PARTITION BY member
-          ORDER BY osm_route_member_network_type(network, ref), network, LENGTH(ref), ref
+      PARTITION BY rm.member
+      ORDER BY osm_route_member_network_type(
+          COALESCE(NULLIF(srm.network, ''), rm.network), COALESCE(NULLIF(srm.ref, ''), rm.ref)
+           ),
+               COALESCE(NULLIF(srm.network, ''), rm.network),
+               LENGTH(COALESCE(NULLIF(srm.ref, ''), rm.ref)),
+               COALESCE(NULLIF(srm.ref, ''), rm.ref)
       ) AS concurrency_index,
       CASE
-           WHEN network IN ('iwn', 'nwn', 'rwn') THEN 1
-           WHEN network = 'lwn' THEN 2
-           WHEN osmc_symbol || colour <> '' THEN 2
+           WHEN COALESCE(NULLIF(srm.network, ''), rm.network) IN ('iwn', 'nwn', 'rwn') THEN 1
+           WHEN COALESCE(NULLIF(srm.network, ''), rm.network) = 'lwn' THEN 2
+           WHEN rm.osmc_symbol || rm.colour <> '' THEN 2
       END AS rank
     FROM (
         -- etldoc:  osm_route_member ->  osm_route_member
@@ -166,7 +205,36 @@ BEGIN
             FROM transportation_name.network_changes c
             WHERE c.is_old IS FALSE AND c.osm_id = osm_route_member.member
         )
-    ) osm_route_member_filtered
+    ) rm
+    LEFT OUTER JOIN (
+        SELECT DISTINCT ON (ordered_superroute_members.member) NULL, ordered_superroute_members.* FROM (
+            WITH RECURSIVE recursive_superroute_member AS (
+                SELECT osm_id AS parent_osm_id, osm_id, 0 AS hierachy_index, member, role, network, ref, name
+                FROM osm_superroute_member
+                UNION
+                SELECT parent.osm_id AS parent_osm_id, recursive_superroute_member.osm_id,
+                       recursive_superroute_member.hierachy_index + 1 AS hierarchy_index,
+                       recursive_superroute_member.member, parent.role, parent.network, parent.ref, parent.name
+                FROM osm_superroute_member parent
+                JOIN recursive_superroute_member ON parent.member = recursive_superroute_member.parent_osm_id
+            )
+            SELECT *, DENSE_RANK() OVER (
+                PARTITION BY recursive_superroute_member.member
+                ORDER BY osm_route_member_network_type(
+                    recursive_superroute_member.network, recursive_superroute_member.ref
+                    ),
+                         recursive_superroute_member.hierachy_index DESC,
+                         recursive_superroute_member.role = 'alternative',
+                         recursive_superroute_member.network,
+                         LENGTH(recursive_superroute_member.ref),
+                         recursive_superroute_member.ref,
+                         LENGTH(recursive_superroute_member.name),
+                         NULLIF(recursive_superroute_member.name, '')
+                ) AS dense_rank
+            FROM recursive_superroute_member
+        ) AS ordered_superroute_members
+        WHERE ordered_superroute_members.dense_rank = 1
+    ) AS srm ON srm.member = rm.osm_id
     ON CONFLICT (member, network, ref) DO UPDATE SET osm_id = EXCLUDED.osm_id, role = EXCLUDED.role,
                                                      type = EXCLUDED.type, name = EXCLUDED.name,
                                                      osmc_symbol = EXCLUDED.osmc_symbol, colour = EXCLUDED.colour,
@@ -191,9 +259,55 @@ CREATE TABLE IF NOT EXISTS transportation_name.network_changes
     PRIMARY KEY (is_old, osm_id)
 );
 
+-- Create temporary "trigger_flag_transportation_name" trigger on transportation_name.network_changes since it is
+-- required byupdate_osm_route_member
+CREATE OR REPLACE FUNCTION noop_trigger() RETURNS trigger AS $$BEGIN RETURN new;END;$$LANGUAGE plpgsql;
+CREATE TRIGGER trigger_flag_transportation_name
+    AFTER INSERT
+    ON transportation_name.network_changes
+    FOR EACH STATEMENT
+EXECUTE PROCEDURE noop_trigger();
+
+-- Ensure transportation_name.superroute_changes table exists since it is required by update_osm_route_member
+CREATE TABLE IF NOT EXISTS transportation_name.superroute_changes
+(
+    osm_id bigint PRIMARY KEY
+);
+
+-- Create osm_superroute_member table and ensure it exists before update_osm_route_member is executed
+CREATE TABLE IF NOT EXISTS "public"."osm_superroute_member" (
+    "osm_id" bigint,
+    "member" bigint,
+    "role" varchar,
+    "type" smallint,
+    "ref" varchar,
+    "network" varchar,
+    "name" varchar
+);
+
+-- Create Primary-Key for osm_superroute_member
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT constraint_name
+        FROM information_schema.table_constraints
+        WHERE table_name = 'osm_superroute_member' AND constraint_type = 'PRIMARY KEY'
+    ) THEN
+        ALTER TABLE "public"."osm_superroute_member" ADD PRIMARY KEY (osm_id, member);
+    END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create index on osm_superroute_member for queries originating from update_osm_route_member
+CREATE INDEX IF NOT EXISTS "osm_superroute_member_member_id" ON "public"."osm_superroute_member" (member);
+
 -- Fill transportation_route_member_coalesced table
 TRUNCATE transportation_route_member_coalesced;
 SELECT update_osm_route_member(TRUE);
+
+-- Drop temporary trigger
+DROP TRIGGER trigger_flag_transportation_name ON transportation_name.network_changes;
+DROP FUNCTION noop_trigger;
 
 -- Index for queries against transportation_route_member_coalesced during transportation-name-network updates
 CREATE INDEX IF NOT EXISTS transportation_route_member_member_idx ON
