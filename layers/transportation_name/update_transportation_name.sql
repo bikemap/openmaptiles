@@ -1308,7 +1308,7 @@ BEGIN
         RETURNING id, source, source_ids
     )
     -- Store OSM-IDs of Source-LineStrings
-    INSERT INTO osm_transportation_name_linestring_source_ids (id, source, source_id)
+    INSERT INTO inserted_relations (id, source, source_id)
     SELECT id, source, unnest(source_ids) AS source_id
     FROM inserted_linestrings
     ON CONFLICT (id, source, source_id) DO NOTHING;
