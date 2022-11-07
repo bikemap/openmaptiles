@@ -96,7 +96,7 @@ FROM (
                 NULL::int AS layer,
                 NULL::int AS level,
                 NULL::boolean AS indoor,
-                NULL AS network_name
+                network_name
          FROM osm_transportation_name_linestring_gen3
          WHERE zoom_level = 7
          UNION ALL
@@ -119,7 +119,7 @@ FROM (
                 NULL::int AS layer,
                 NULL::int AS level,
                 NULL::boolean AS indoor,
-                NULL AS network_name
+                network_name
          FROM osm_transportation_name_linestring_gen2
          WHERE zoom_level = 8
          UNION ALL
@@ -144,7 +144,7 @@ FROM (
                 NULL::int AS layer,
                 NULL::int AS level,
                 NULL::boolean AS indoor,
-                NULL AS network_name
+                network_name
          FROM osm_transportation_name_linestring_gen1
          WHERE zoom_level BETWEEN 9 AND 11
          UNION ALL
