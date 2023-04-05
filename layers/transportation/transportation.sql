@@ -34,14 +34,7 @@ CREATE OR REPLACE FUNCTION layer_transportation(bbox geometry, zoom_level int)
                 cycleway text,
                 oneway_bicycle boolean,
                 cycle_network text,
-                bm_weight int,
-                bm_weight_road_bike int,
-                bm_weight_mountain_bike int,
-                bm_weight_a_to_b int,
-                bm_weight_tracked int,
-                bm_weight_road_bike_tracked int,
-                bm_weight_mountain_bike_tracked int,
-                bm_weight_a_to_b_tracked int
+                bm_weight_tracked int
             )
 AS
 $$
@@ -85,14 +78,7 @@ SELECT osm_id,
        NULLIF(cycleway, '') AS cycleway,
        oneway_bicycle_value(oneway_bicycle) AS oneway_bicycle,
        NULLIF(cycle_network, '') AS cycle_network,
-       NULLIF(bm_weight, 0) AS bm_weight,
-       NULLIF(bm_weight_road_bike, 0) AS bm_weight_road_bike,
-       NULLIF(bm_weight_mountain_bike, 0) AS bm_weight_mountain_bike,
-       NULLIF(bm_weight_a_to_b, 0) AS bm_weight_a_to_b,
-       NULLIF(bm_weight_tracked, 0) AS bm_weight_tracked,
-       NULLIF(bm_weight_road_bike_tracked, 0) AS bm_weight_road_bike_tracked,
-       NULLIF(bm_weight_mountain_bike_tracked, 0) AS bm_weight_mountain_bike_tracked,
-       NULLIF(bm_weight_a_to_b_tracked, 0) AS bm_weight_a_to_b_tracked
+       NULLIF(bm_weight_tracked, 0) AS bm_weight_tracked
 FROM (
          -- etldoc: osm_transportation_merge_linestring_gen_z4 -> layer_transportation:z4
          SELECT osm_id,
@@ -125,14 +111,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z4
          WHERE zoom_level = 4
@@ -169,14 +148,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z5
          WHERE zoom_level = 5
@@ -213,14 +185,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z6
          WHERE zoom_level = 6
@@ -257,14 +222,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn') THEN network END AS cycle_network,
-                bm_weight,
-                bm_weight_road_bike,
-                bm_weight_mountain_bike,
-                bm_weight_a_to_b,
                 bm_weight_tracked,
-                bm_weight_road_bike_tracked,
-                bm_weight_mountain_bike_tracked,
-                bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z7
          WHERE zoom_level = 7
@@ -301,14 +259,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn') THEN network END AS cycle_network,
-                bm_weight,
-                bm_weight_road_bike,
-                bm_weight_mountain_bike,
-                bm_weight_a_to_b,
                 bm_weight_tracked,
-                bm_weight_road_bike_tracked,
-                bm_weight_mountain_bike_tracked,
-                bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z8
          WHERE zoom_level = 8
@@ -345,14 +296,7 @@ FROM (
                 cycleway,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn') THEN network END AS cycle_network,
-                bm_weight,
-                bm_weight_road_bike,
-                bm_weight_mountain_bike,
-                bm_weight_a_to_b,
                 bm_weight_tracked,
-                bm_weight_road_bike_tracked,
-                bm_weight_mountain_bike_tracked,
-                bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z9
          WHERE zoom_level = 9
@@ -389,14 +333,7 @@ FROM (
                 cycleway,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn') THEN network END AS cycle_network,
-                bm_weight,
-                bm_weight_road_bike,
-                bm_weight_mountain_bike,
-                bm_weight_a_to_b,
                 bm_weight_tracked,
-                bm_weight_road_bike_tracked,
-                bm_weight_mountain_bike_tracked,
-                bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z10
          WHERE zoom_level = 10
@@ -433,14 +370,7 @@ FROM (
                 cycleway,
                 NULL AS oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN network END AS cycle_network,
-                bm_weight,
-                bm_weight_road_bike,
-                bm_weight_mountain_bike,
-                bm_weight_a_to_b,
                 bm_weight_tracked,
-                bm_weight_road_bike_tracked,
-                bm_weight_mountain_bike_tracked,
-                bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_transportation_merge_linestring_gen_z11
          WHERE zoom_level = 11
@@ -485,14 +415,7 @@ FROM (
                 ) AS cycleway,
                 oneway_bicycle,
                 CASE WHEN network IN ('icn', 'ncn', 'rcn', 'lcn') THEN network END AS cycle_network,
-                ROUND(NULLIF(bm_weight, '')::NUMERIC)::int,
-                ROUND(NULLIF(bm_weight_road_bike, '')::NUMERIC)::int,
-                ROUND(NULLIF(bm_weight_mountain_bike, '')::NUMERIC)::int,
-                ROUND(NULLIF(bm_weight_a_to_b, '')::NUMERIC)::int,
                 ROUND(NULLIF(bm_weight_tracked, '')::NUMERIC)::int,
-                ROUND(NULLIF(bm_weight_road_bike_tracked, '')::NUMERIC)::int,
-                ROUND(NULLIF(bm_weight_mountain_bike_tracked, '')::NUMERIC)::int,
-                ROUND(NULLIF(bm_weight_a_to_b_tracked, '')::NUMERIC)::int,
                 hl.z_order
          FROM osm_highway_linestring hl
          LEFT OUTER JOIN osm_transportation_name_network n ON hl.osm_id = n.osm_id
@@ -551,14 +474,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_railway_linestring_gen_z8
          WHERE zoom_level = 8
@@ -598,14 +514,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_railway_linestring_gen_z9
          WHERE zoom_level = 9
@@ -645,14 +554,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_railway_linestring_gen_z10
          WHERE zoom_level = 10
@@ -691,14 +593,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_railway_linestring_gen_z11
          WHERE zoom_level = 11
@@ -737,14 +632,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_railway_linestring_gen_z12
          WHERE zoom_level = 12
@@ -784,14 +672,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_railway_linestring
          WHERE zoom_level = 13
@@ -831,14 +712,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_aerialway_linestring_gen_z12
          WHERE zoom_level = 12
@@ -876,14 +750,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_aerialway_linestring
          WHERE zoom_level >= 13
@@ -920,14 +787,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring_gen_z4
          WHERE zoom_level = 4
@@ -964,14 +824,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring_gen_z5
          WHERE zoom_level = 5
@@ -1008,14 +861,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring_gen_z6
          WHERE zoom_level = 6
@@ -1052,14 +898,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring_gen_z7
          WHERE zoom_level = 7
@@ -1096,14 +935,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring_gen_z8
          WHERE zoom_level = 8
@@ -1140,14 +972,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring_gen_z9
          WHERE zoom_level = 9
@@ -1184,14 +1009,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring_gen_z10
          WHERE zoom_level = 10
@@ -1228,14 +1046,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring_gen_z11
          WHERE zoom_level = 11
@@ -1272,14 +1083,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring_gen_z12
          WHERE zoom_level = 12
@@ -1317,14 +1121,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_shipway_linestring
          WHERE zoom_level >= 13
@@ -1369,14 +1166,7 @@ FROM (
                 NULL AS cycleway,
                 NULL AS oneway_bicycle,
                 NULL AS cycle_network,
-                NULL::int AS bm_weight,
-                NULL::int AS bm_weight_road_bike,
-                NULL::int AS bm_weight_mountain_bike,
-                NULL::int AS bm_weight_a_to_b,
                 NULL::int AS bm_weight_tracked,
-                NULL::int AS bm_weight_road_bike_tracked,
-                NULL::int AS bm_weight_mountain_bike_tracked,
-                NULL::int AS bm_weight_a_to_b_tracked,
                 z_order
          FROM osm_highway_polygon
               -- We do not want underground pedestrian areas for now

@@ -196,30 +196,9 @@ layer:
     cycleway:
       description: |
           Original value of the ['cycleway'] (http://wiki.openstreetmap.org/wiki/Key:cycleway) tag (highways only).
-    bm_weight:
-      description: |
-        Value of the [`bm-weight`]
-    bm_weight_road_bike:
-      description: |
-        Value of the [`bm-weight-road-bike`]
-    bm_weight_mountain_bike:
-      description: |
-        Value of the [`bm-weight-mountain-bike`]
-    bm_weight_a_to_b:
-      description: |
-        Value of the [`bm-weight-a-to-b`]
     bm_weight_tracked:
       description: |
         Value of the [`bm-weight-tracked`]
-    bm_weight_road_bike_tracked:
-      description: |
-        Value of the [`bm-weight-road-bike-tracked`]
-    bm_weight_mountain_bike_tracked:
-      description: |
-        Value of the [`bm-weight-mountain-bike-tracked`]
-    bm_weight_a_to_b_tracked:
-      description: |
-        Value of the [`bm-weight-a-to-b-tracked`]
     foot:
       description: |
           Original value of the [`foot`](http://wiki.openstreetmap.org/wiki/Key:foot) tag (highways only).
@@ -246,7 +225,7 @@ layer:
   datasource:
     geometry_field: geometry
     srid: 900913
-    query: (SELECT geometry, class, subclass, network, oneway, oneway_bicycle, ramp, brunnel, service, access, toll, expressway, layer, level, indoor, bicycle, cycleway, bm_weight, bm_weight_road_bike, bm_weight_mountain_bike, bm_weight_a_to_b, bm_weight_tracked, bm_weight_road_bike_tracked, bm_weight_mountain_bike_tracked, bm_weight_a_to_b_tracked, foot, horse, mtb_scale, surface, cycle_network FROM layer_transportation(!bbox!, z(!scale_denominator!))) AS t
+    query: (SELECT geometry, class, subclass, network, oneway, oneway_bicycle, ramp, brunnel, service, access, toll, expressway, layer, level, indoor, bicycle, cycleway, bm_weight_tracked, foot, horse, mtb_scale, surface, cycle_network FROM layer_transportation(!bbox!, z(!scale_denominator!))) AS t
 schema:
   - ./network_type.sql
   - ./class.sql
