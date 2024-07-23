@@ -788,7 +788,15 @@ BEGIN
 	WHERE (hl.name <> '' OR hl.ref <> '' OR rm1.ref <> '' OR rm1.network <> '')
           AND hl.highway <> ''
     ) AS t
-    ON CONFLICT DO NOTHING;
+    ON CONFLICT (osm_id)
+    DO UPDATE SET "geometry" = EXCLUDED."geometry", "tags" = EXCLUDED."tags", "ref" = EXCLUDED."ref",
+                  "highway" = EXCLUDED."highway", "subclass" = EXCLUDED."subclass", "brunnel" = EXCLUDED."brunnel",
+                  "level" = EXCLUDED."level", "sac_scale" = EXCLUDED."sac_scale", "layer" = EXCLUDED."layer",
+                  "indoor" = EXCLUDED."indoor", "network_type" = EXCLUDED."network_type",
+                  "network_name" = EXCLUDED."network_name", "route_1" = EXCLUDED."route_1",
+                  "route_2" = EXCLUDED."route_2", "route_3" = EXCLUDED."route_3", "route_4" = EXCLUDED."route_4",
+                  "route_5" = EXCLUDED."route_5", "route_6" = EXCLUDED."route_6", "z_order" = EXCLUDED."z_order",
+                  "route_rank" = EXCLUDED."route_rank";
 
     -- noinspection SqlWithoutWhere
     DELETE FROM transportation_name.network_changes;
