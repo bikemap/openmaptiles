@@ -2,6 +2,7 @@ DROP TRIGGER IF EXISTS trigger_store_transportation_route_member ON osm_route_me
 DROP TRIGGER IF EXISTS trigger_store_transportation_superroute_member ON osm_superroute_member;
 DROP TRIGGER IF EXISTS trigger_store_transportation_highway_linestring ON osm_highway_linestring;
 DROP TRIGGER IF EXISTS trigger_flag_transportation_name ON transportation_name.network_changes;
+DROP TRIGGER IF EXISTS trigger_flag_transportation_name_highway_changes ON transportation_name.highway_linestring_changes;
 DROP TRIGGER IF EXISTS trigger_refresh_network ON transportation_name.updates_network;
 
 DROP TRIGGER IF EXISTS trigger_store_transportation_name_network ON osm_transportation_name_network;

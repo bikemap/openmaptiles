@@ -68,8 +68,7 @@ SELECT
     z_order,
     route_rank
 FROM (
-    SELECT DISTINCT ON (hl.osm_id)
-        hl.geometry,
+    SELECT hl.geometry,
         hl.osm_id,
         transportation_name_tags(hl.geometry, hl.tags, hl.name, hl.name_en, hl.name_de) AS tags,
         rm1.network_type,
