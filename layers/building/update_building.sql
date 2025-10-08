@@ -86,7 +86,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE
                     STRICT
-                    PARALLEL SAFE;
+                    PARALLEL SAFE
+                    SET search_path FROM CURRENT;
 
 
 DROP MATERIALIZED VIEW IF EXISTS osm_building_block_gen1_dup CASCADE;
