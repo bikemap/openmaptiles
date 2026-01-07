@@ -199,7 +199,7 @@ TRUNCATE osm_transportation_merge_linestring_gen_z11;
 TRUNCATE osm_transportation_merge_linestring_gen_z11_source_ids;
 
 -- Merge LineStrings from osm_highway_linestring_gen_z11 by grouping them and creating intersecting clusters of
--- each group via ST_ClusterDBSCAN
+-- each group via ST_ClusterIntersectingWin
 INSERT INTO osm_transportation_merge_linestring_gen_z11 (geometry, source_ids, highway, network, construction,
                                                          is_bridge, is_tunnel, is_ford, expressway, z_order,
                                                          bicycle, foot, horse, mtb_scale, sac_scale, access, toll,
@@ -239,9 +239,9 @@ SELECT (ST_Dump(ST_LineMerge(ST_Union(geometry)))).geom AS geometry,
        ) AS cycleway
 FROM (
     SELECT osm_highway_linestring_normalized_brunnel_z11.*,
-           -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points to 1
-           -- https://postgis.net/docs/ST_ClusterDBSCAN.html
-           ST_ClusterDBSCAN(geometry, 0, 1) OVER (
+           -- Get intersecting clusters
+           -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+           ST_ClusterIntersectingWin(geometry) OVER (
                PARTITION BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle,
                             foot, horse, mtb_scale, sac_scale, access, toll, layer,
                             cycleway_value(
@@ -249,8 +249,8 @@ FROM (
                                 cycleway_right, cycleway_street
                             )
            ) AS cluster,
-           -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
-           -- This leads to clusters having the same ID across multiple partitions therefore we generate a
+           -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition starting
+           -- at 0. This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (
                ORDER BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle,
@@ -634,7 +634,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS osm_transportation_merge_linestring_gen_z9_upd
 ANALYZE osm_transportation_merge_linestring_gen_z9;
 
 -- Merge LineStrings from osm_transportation_merge_linestring_gen_z9 by grouping them and creating intersecting
--- clusters of each group via ST_ClusterDBSCAN
+-- clusters of each group via ST_ClusterIntersectingWin
 INSERT INTO osm_transportation_merge_linestring_gen_z8(geometry, source_ids, highway, network, construction, is_bridge,
                                                        is_tunnel, is_ford, expressway, z_order)
 SELECT (ST_Dump(ST_Simplify(ST_LineMerge(ST_Union(geometry)), ZRes(10)))).geom AS geometry,
@@ -658,13 +658,13 @@ SELECT (ST_Dump(ST_Simplify(ST_LineMerge(ST_Union(geometry)), ZRes(10)))).geom A
        min(z_order) as z_order
 FROM (
     SELECT osm_highway_linestring_normalized_brunnel_z9.*,
-           -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points to 1
-           -- https://postgis.net/docs/ST_ClusterDBSCAN.html
-           ST_ClusterDBSCAN(geometry, 0, 1) OVER (
+           -- Get intersecting clusters
+           -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+           ST_ClusterIntersectingWin(geometry) OVER (
                PARTITION BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway
            ) AS cluster,
-           -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
-           -- This leads to clusters having the same ID across multiple partitions therefore we generate a
+           -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition starting
+           -- at 0. This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (
                ORDER BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway
@@ -1212,12 +1212,12 @@ BEGIN
     CREATE TEMPORARY TABLE clustered_linestrings_to_merge AS
     SELECT *,
            -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points to 1
-           -- https://postgis.net/docs/ST_ClusterDBSCAN.html
-           ST_ClusterDBSCAN(geometry, 0, 1) OVER (
+           -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+           ST_ClusterIntersectingWin(geometry) OVER (
                PARTITION BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway, bicycle, foot,
                horse, mtb_scale, sac_scale, access, toll, layer, cycleway
            ) AS cluster,
-           -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
+           -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition starting at 0.
            -- This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (
@@ -1543,13 +1543,13 @@ BEGIN
     -- groups
     CREATE TEMPORARY TABLE clustered_linestrings_to_merge AS
     SELECT *,
-           -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points to 1
-           -- https://postgis.net/docs/ST_ClusterDBSCAN.html
-           ST_ClusterDBSCAN(geometry, 0, 1) OVER (
+           -- Get intersecting clusters
+           -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+           ST_ClusterIntersectingWin(geometry) OVER (
                PARTITION BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway
            ) AS cluster,
-           -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
-           -- This leads to clusters having the same ID across multiple partitions therefore we generate a
+           -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition starting
+           -- at 0. This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (
                ORDER BY highway, network, construction, is_bridge, is_tunnel, is_ford, expressway

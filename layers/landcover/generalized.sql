@@ -32,7 +32,7 @@ CREATE TABLE osm_landcover_gen_z13 AS
     SELECT subclass, ST_MakeValid((ST_dump(ST_Union(geometry))).geom) AS geometry
     FROM (
         SELECT subclass,
-               ST_ClusterDBSCAN(geometry, eps := 0, minpoints := 1) over () AS cid, geometry
+               ST_ClusterIntersectingWin(geometry) over () AS cid, geometry
         FROM simplify_vw_z13
         WHERE ST_NPoints(geometry) < 300
           AND subclass IN ('wood', 'forest')) union_geom300
@@ -68,7 +68,7 @@ CREATE TABLE osm_landcover_gen_z12 AS
     SELECT subclass, ST_MakeValid((ST_dump(ST_Union(geometry))).geom) AS geometry
     FROM (
         SELECT subclass,
-               ST_ClusterDBSCAN(geometry, eps := 0, minpoints := 1) over () AS cid, geometry
+               ST_ClusterIntersectingWin(geometry) over () AS cid, geometry
         FROM simplify_vw_z12
         WHERE ST_NPoints(geometry) < 300
           AND subclass IN ('wood', 'forest')) union_geom300
@@ -104,7 +104,7 @@ CREATE TABLE osm_landcover_gen_z11 AS
     SELECT subclass, ST_MakeValid((ST_dump(ST_Union(geometry))).geom) AS geometry
     FROM (
         SELECT subclass,
-               ST_ClusterDBSCAN(geometry, eps := 0, minpoints := 1) over () AS cid, geometry
+               ST_ClusterIntersectingWin(geometry) over () AS cid, geometry
         FROM simplify_vw_z11
         WHERE ST_NPoints(geometry) < 300
           AND subclass IN ('wood', 'forest')) union_geom300
@@ -140,7 +140,7 @@ CREATE TABLE osm_landcover_gen_z10 AS
     SELECT subclass, ST_MakeValid((ST_dump(ST_Union(geometry))).geom) AS geometry
     FROM (
         SELECT subclass,
-               ST_ClusterDBSCAN(geometry, eps := 0, minpoints := 1) over () AS cid, geometry
+               ST_ClusterIntersectingWin(geometry) over () AS cid, geometry
         FROM simplify_vw_z10
         WHERE ST_NPoints(geometry) < 300
           AND subclass IN ('wood', 'forest')) union_geom300
@@ -176,7 +176,7 @@ CREATE TABLE osm_landcover_gen_z9 AS
     SELECT subclass, ST_MakeValid((ST_dump(ST_Union(geometry))).geom) AS geometry
     FROM (
         SELECT subclass,
-               ST_ClusterDBSCAN(geometry, eps := 0, minpoints := 1) over () AS cid, geometry
+               ST_ClusterIntersectingWin(geometry) over () AS cid, geometry
         FROM simplify_vw_z9
         WHERE ST_NPoints(geometry) < 300
           AND subclass IN ('wood', 'forest')) union_geom300
@@ -189,7 +189,7 @@ CREATE TABLE osm_landcover_gen_z9 AS
              ST_Union(geometry))).geom) AS geometry
     FROM (
         SELECT subclass,
-               ST_ClusterDBSCAN(geometry, eps := 0, minpoints := 1) over () AS cid, geometry
+               ST_ClusterIntersectingWin(geometry) over () AS cid, geometry
         FROM simplify_vw_z9
         WHERE ST_NPoints(geometry) >= 300
           AND subclass IN ('wood', 'forest')) union_geom_rest
@@ -228,7 +228,7 @@ SELECT subclass,
     FROM
         (
         SELECT subclass,
-               ST_ClusterDBSCAN(geometry, eps := 0, minpoints := 1) OVER () AS cid,
+               ST_ClusterIntersectingWin(geometry) OVER () AS cid,
                geometry
         FROM simplify_vw_z8
         WHERE subclass IN ('wood', 'forest')
@@ -268,7 +268,7 @@ SELECT subclass,
     FROM
         (
         SELECT  subclass,
-                ST_ClusterDBSCAN(geometry, eps := 0, minpoints := 1) OVER () AS cid,
+                ST_ClusterIntersectingWin(geometry) OVER () AS cid,
                 geometry
         FROM simplify_vw_z7
         ) union_geom

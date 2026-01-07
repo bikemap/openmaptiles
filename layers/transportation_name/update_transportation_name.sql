@@ -101,7 +101,7 @@ SELECT source,
        route_rank
 FROM (
          -- Merge LineStrings from osm_transportation_name_network by grouping them and creating intersecting
-         -- clusters of each group via ST_ClusterDBSCAN
+         -- clusters of each group via ST_ClusterIntersectingWin
          SELECT (ST_Dump(ST_LineMerge(ST_Union(geometry)))).geom AS geometry,
                 -- We use St_Union instead of St_Collect to ensure no overlapping points exist within the
                 -- geometries to merge. https://postgis.net/docs/ST_Union.html
@@ -128,13 +128,13 @@ FROM (
                 min(route_rank) AS route_rank
          FROM (
              SELECT *,
-                    -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points
-                    -- to 1. https://postgis.net/docs/ST_ClusterDBSCAN.html
-                    ST_ClusterDBSCAN(geometry, 0, 1) OVER (
+                    -- Get intersecting clusters
+                    -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+                    ST_ClusterIntersectingWin(geometry) OVER (
                         PARTITION BY tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor,
                                      network_type, network_name, route_1, route_2, route_3, route_4, route_5, route_6
                     ) AS cluster,
-                    -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition
+                    -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition
                     -- starting at 0. This leads to clusters having the same ID across multiple partitions
                     -- therefore we generate a Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the
                     -- partition columns.
@@ -153,7 +153,7 @@ FROM (
          UNION ALL
 
          -- Merge LineStrings from osm_shipway_linestring by grouping them and creating intersecting
-         -- clusters of each group via ST_ClusterDBSCAN
+         -- clusters of each group via ST_ClusterIntersectingWin
          SELECT (ST_Dump(ST_LineMerge(ST_Union(geometry)))).geom AS geometry,
                 -- We use St_Union instead of St_Collect to ensure no overlapping points exist within the
                 -- geometries to merge. https://postgis.net/docs/ST_Union.html
@@ -187,14 +187,14 @@ FROM (
                 NULL::int AS route_rank
          FROM (
              SELECT *,
-                    -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points
-                    -- to 1. https://postgis.net/docs/ST_ClusterDBSCAN.html
-                    ST_ClusterDBSCAN(geometry, 0, 1) OVER (
+                    -- Get intersecting clusters
+                    -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+                    ST_ClusterIntersectingWin(geometry) OVER (
                         PARTITION BY transportation_name_tags(
                             NULL::geometry, tags, name, name_en, name_de
                         ), shipway, layer
                     ) AS cluster,
-                    -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition
+                    -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition
                     -- starting at 0. This leads to clusters having the same ID across multiple partitions
                     -- therefore we generate a Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the
                     -- partition columns.
@@ -212,7 +212,7 @@ FROM (
          UNION ALL
 
          -- Merge LineStrings from osm_aerialway_linestring by grouping them and creating intersecting
-         -- clusters of each group via ST_ClusterDBSCAN
+         -- clusters of each group via ST_ClusterIntersectingWin
          SELECT (ST_Dump(ST_LineMerge(ST_Union(geometry)))).geom AS geometry,
                 -- We use St_Union instead of St_Collect to ensure no overlapping points exist within the
                 -- geometries to merge. https://postgis.net/docs/ST_Union.html
@@ -246,14 +246,14 @@ FROM (
                 NULL::int AS route_rank
          FROM (
              SELECT *,
-                    -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points
-                    -- to 1. https://postgis.net/docs/ST_ClusterDBSCAN.html
-                    ST_ClusterDBSCAN(geometry, 0, 1) OVER (
+                    -- Get intersecting clusters
+                    -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+                    ST_ClusterIntersectingWin(geometry) OVER (
                         PARTITION BY transportation_name_tags(
                             NULL::geometry, tags, name, name_en, name_de
                         ), aerialway, layer
                     ) AS cluster,
-                    -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition
+                    -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition
                     -- starting at 0. This leads to clusters having the same ID across multiple partitions
                     -- therefore we generate a Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the
                     -- partition columns.
@@ -1167,14 +1167,14 @@ BEGIN
     -- groups
     CREATE TEMPORARY TABLE clustered_linestrings_to_merge AS
     SELECT *,
-           -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points to 1.
-           -- https://postgis.net/docs/ST_ClusterDBSCAN.html
-           ST_ClusterDBSCAN(geometry, 0, 1) OVER (
+           -- Get intersecting clusters
+           -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+           ST_ClusterIntersectingWin(geometry) OVER (
                PARTITION BY tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor, network_type,
                             network_name, route_1, route_2, route_3, route_4, route_5, route_6
            ) AS cluster,
-           -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
-           -- This leads to clusters having the same ID across multiple partitions therefore we generate a
+           -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition starting
+           -- at 0. This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (
                ORDER BY tags, ref, highway, subclass, brunnel, level, layer, sac_scale, indoor, network_type,
@@ -1362,10 +1362,10 @@ BEGIN
     CREATE TEMPORARY TABLE clustered_linestrings_to_merge AS
     SELECT *,
            -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points to 1.
-           -- https://postgis.net/docs/ST_ClusterDBSCAN.html
-           ST_ClusterDBSCAN(geometry, 0, 1) OVER (PARTITION BY tags, subclass, layer) AS cluster,
-           -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
-           -- This leads to clusters having the same ID across multiple partitions therefore we generate a
+           -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+           ST_ClusterIntersectingWin(geometry) OVER (PARTITION BY tags, subclass, layer) AS cluster,
+           -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition starting
+           -- at 0. This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (ORDER BY tags, subclass, layer) as cluster_group
     FROM linestrings_to_merge;
@@ -1544,10 +1544,10 @@ BEGIN
     CREATE TEMPORARY TABLE clustered_linestrings_to_merge AS
     SELECT *,
            -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points to 1.
-           -- https://postgis.net/docs/ST_ClusterDBSCAN.html
-           ST_ClusterDBSCAN(geometry, 0, 1) OVER (PARTITION BY tags, subclass, layer) AS cluster,
-           -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
-           -- This leads to clusters having the same ID across multiple partitions therefore we generate a
+           -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+           ST_ClusterIntersectingWin(geometry) OVER (PARTITION BY tags, subclass, layer) AS cluster,
+           -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition starting
+           -- at 0. This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (ORDER BY tags, subclass, layer) as cluster_group
     FROM linestrings_to_merge;

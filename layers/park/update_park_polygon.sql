@@ -26,7 +26,7 @@ CREATE MATERIALIZED VIEW osm_park_polygon_dissolve_z4 AS
   SELECT min(osm_id) AS osm_id,
          ST_Union(geometry) AS geometry
   FROM (
-        SELECT ST_ClusterDBSCAN(geometry, 0, 1) OVER() AS cluster,
+        SELECT ST_ClusterIntersectingWin(geometry) OVER() AS cluster,
                osm_id,
                geometry
         FROM osm_park_polygon_gen_z4

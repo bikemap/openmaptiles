@@ -56,7 +56,7 @@ TRUNCATE osm_important_waterway_linestring_source_ids;
 
 -- etldoc: osm_waterway_linestring ->  osm_important_waterway_linestring
 -- Merge LineStrings from osm_waterway_linestring by grouping them and creating intersecting
--- clusters of each group via ST_ClusterDBSCAN
+-- clusters of each group via ST_ClusterIntersectingWin
 INSERT INTO osm_important_waterway_linestring (geometry, source_ids, name, name_en, name_de, tags)
 SELECT (ST_Dump(ST_LineMerge(ST_Union(geometry)))).geom AS geometry,
        -- We use St_Union instead of St_Collect to ensure no overlapping points exist within the geometries
@@ -74,12 +74,12 @@ SELECT (ST_Dump(ST_LineMerge(ST_Union(geometry)))).geom AS geometry,
 FROM (
     SELECT *,
            -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points to 1.
-           -- https://postgis.net/docs/ST_ClusterDBSCAN.html
-           ST_ClusterDBSCAN(geometry, 0, 1) OVER (
+           -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+           ST_ClusterIntersectingWin(geometry) OVER (
                PARTITION BY name, name_en, name_de, slice_language_tags(tags)
            ) AS cluster,
-           -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
-           -- This leads to clusters having the same ID across multiple partitions therefore we generate a
+           -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition starting
+           -- at 0. This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (ORDER BY name, name_en, name_de, slice_language_tags(tags)) as cluster_group
     FROM osm_waterway_linestring
@@ -461,10 +461,10 @@ BEGIN
     CREATE TEMPORARY TABLE clustered_linestrings_to_merge AS
     SELECT *,
            -- Get intersecting clusters by setting minimum distance to 0 and minimum intersecting points to 1.
-           -- https://postgis.net/docs/ST_ClusterDBSCAN.html
-           ST_ClusterDBSCAN(geometry, 0, 1) OVER (PARTITION BY name, name_en, name_de, tags) AS cluster,
-           -- ST_ClusterDBSCAN returns an increasing integer as the cluster-ids within each partition starting at 0.
-           -- This leads to clusters having the same ID across multiple partitions therefore we generate a
+           -- https://postgis.net/docs/ST_ClusterIntersectingWin.html
+           ST_ClusterIntersectingWin(geometry) OVER (PARTITION BY name, name_en, name_de, tags) AS cluster,
+           -- ST_ClusterIntersectingWin returns an increasing integer as the cluster-ids within each partition starting
+           -- at 0. This leads to clusters having the same ID across multiple partitions therefore we generate a
            -- Cluster-Group-ID by utilizing the DENSE_RANK function sorted over the partition columns.
            DENSE_RANK() OVER (ORDER BY name, name_en, name_de, tags) as cluster_group
     FROM linestrings_to_merge;

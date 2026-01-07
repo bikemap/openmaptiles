@@ -228,6 +228,7 @@ FROM (
 		p.geometry,
                 p.tags,
                 p.ref,
+                -- FIXME Move to materialized view
                 (
                   SELECT highest_highway(l.tags->'highway')
                     FROM osm_highway_linestring l
